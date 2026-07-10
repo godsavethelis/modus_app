@@ -60,6 +60,9 @@ export async function getStatus(id: string): Promise<{ status: ProcessingStatus;
     // Из uploading в ready приходим без транскрипта — саммари тогда не делаем.
     if (next === 'ready' && rec.segments.length > 0 && !rec.summary) {
       rec.summary = makeMockSummary();
+      // Готовый текст сразу уезжает в Inbox веб-приложения — руками не отправляем.
+      // TODO(backend): это делает summarize-job; клиенту останется показать статус.
+      rec.sentToInbox = true;
     }
   }
   return { status: rec.status, progress: rec.progress ?? 1 };

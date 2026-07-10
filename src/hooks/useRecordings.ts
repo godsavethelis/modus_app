@@ -1,6 +1,6 @@
 /** React Query хуки над мок-API записей. */
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { RecordingPatch } from '@/types';
+import type { ExportKind, RecordingPatch } from '@/types';
 import { recordingsApi, transcribeApi } from '@/services/api';
 
 const keys = {
@@ -58,14 +58,15 @@ export function useProcessingStatus(id: string, enabled: boolean) {
   });
 }
 
-export function useSendToInbox(id: string) {
-  const qc = useQueryClient();
+/** Ссылка на запись для шеринга. */
+export function useShareLink(id: string) {
+  return useMutation({ mutationFn: () => recordingsApi.createShareLink(id) });
+}
+
+/** Выгрузка записи файлом: аудио, транскрипт или саммари. */
+export function useExportRecording(id: string) {
   return useMutation({
-    mutationFn: () => recordingsApi.sendToInbox(id),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: keys.detail(id) });
-      qc.invalidateQueries({ queryKey: keys.list });
-    },
+    mutationFn: (kind: ExportKind) => recordingsApi.exportRecording(id, kind),
   });
 }
 

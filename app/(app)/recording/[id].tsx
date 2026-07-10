@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -13,7 +13,8 @@ import {
   usePatchRecording,
   useProcessingStatus,
   useRetryProcessing,
-  useSendToInbox,
+  useExportRecording,
+  useShareLink,
   useDeleteRecording,
   useStartGeneration,
   useRegenerateSummary,
@@ -22,7 +23,7 @@ import { useMockPlayer } from '@/hooks/useMockPlayer';
 import { formatDateTime, formatTimecode } from '@/lib/format';
 import { font, fontSize, radius, spacing, type Palette } from '@/theme';
 import { useTheme } from '@/theme/ThemeProvider';
-import type { ProcessingStatus } from '@/types';
+import type { ExportKind, ProcessingStatus } from '@/types';
 
 type Tab = 'transcript' | 'summary';
 
@@ -41,6 +42,12 @@ const STAGE_TAG: Partial<Record<ProcessingStatus, string>> = {
   summarizing: 'САММАРИ',
 };
 
+const EXPORT_DONE: Record<ExportKind, string> = {
+  audio: 'Аудио выгружено',
+  transcript: 'Транскрипт выгружен',
+  summary: 'Саммари выгружено',
+};
+
 const WAVE = Array.from({ length: 44 }, (_, i) => 4 + Math.round(22 * Math.abs(Math.sin(i * 0.6))));
 
 export default function RecordingDetailScreen() {
@@ -50,11 +57,12 @@ export default function RecordingDetailScreen() {
   // Пока идёт расшифровка — опрашиваем статус; на ready экран сам переключится.
   const { data: live } = useProcessingStatus(id, !!rec && IN_PROGRESS.includes(rec.status));
   const patch = usePatchRecording(id);
-  const send = useSendToInbox(id);
   const del = useDeleteRecording();
   const retry = useRetryProcessing(id);
   const gen = useStartGeneration(id);
   const regen = useRegenerateSummary(id);
+  const shareLink = useShareLink(id);
+  const exportFile = useExportRecording(id);
   const player = useMockPlayer(rec?.durationSec ?? 0);
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
@@ -66,10 +74,24 @@ export default function RecordingDetailScreen() {
   const [draft, setDraft] = useState('');
   const [waveW, setWaveW] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
   const [renameOpen, setRenameOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [draftTitle, setDraftTitle] = useState('');
-  const [toast, setToast] = useState(false);
+  /** Текст тоста внизу экрана; null — тоста нет. */
+  const [toast, setToast] = useState<string | null>(null);
+
+  // Готовый текст уезжает в Modus сам — сообщаем об этом, когда генерация закончилась.
+  const finishedNow = live?.status === 'ready' && (rec?.segments.length ?? 0) > 0;
+  useEffect(() => {
+    if (finishedNow) setToast('Отправлено в Modus');
+  }, [finishedNow]);
+
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 2400);
+    return () => clearTimeout(t);
+  }, [toast]);
 
   if (isLoading || !rec) {
     return (
@@ -86,7 +108,6 @@ export default function RecordingDetailScreen() {
   const progress = live?.progress ?? rec.progress ?? 0;
   const generating = IN_PROGRESS.includes(stage);
   const isFailed = stage === 'failed';
-  const alreadySent = rec.sentToInbox || toast;
   const summary = rec.summary;
   // Транскрипт и саммари появляются вместе — после «Сгенерировать».
   const generated = rec.segments.length > 0 || !!summary;
@@ -137,16 +158,17 @@ export default function RecordingDetailScreen() {
     player.seekTo(sec);
     player.play();
   }
-  function onSend() {
-    send.mutate(undefined, {
-      onSuccess: () => {
-        setToast(true);
-        setTimeout(() => router.back(), 1200);
-      },
-    });
-  }
   function onDelete() {
     del.mutate(id, { onSuccess: () => router.back() });
+  }
+  function onShareLink() {
+    setShareOpen(false);
+    // TODO(recorder): нативный share-sheet / копирование в буфер.
+    shareLink.mutate(undefined, { onSuccess: () => setToast('Ссылка скопирована') });
+  }
+  function onExport(kind: ExportKind) {
+    setShareOpen(false);
+    exportFile.mutate(kind, { onSuccess: () => setToast(EXPORT_DONE[kind]) });
   }
 
   return (
@@ -157,14 +179,10 @@ export default function RecordingDetailScreen() {
           <Ionicons name="chevron-back" size={24} color={colors.ink} />
         </Pressable>
         <View style={styles.topRight}>
-          <Pressable onPress={onSend} disabled={!generated || alreadySent} hitSlop={8}>
-            <Ionicons
-              name={alreadySent ? 'checkmark-circle' : 'paper-plane-outline'}
-              size={21}
-              color={alreadySent ? colors.textSecondary : generated ? colors.ink : colors.textMuted}
-            />
+          <Pressable onPress={() => setShareOpen(true)} hitSlop={8} accessibilityLabel="Поделиться">
+            <Ionicons name="share-outline" size={22} color={colors.ink} />
           </Pressable>
-          <Pressable onPress={() => setMenuOpen(true)} hitSlop={8}>
+          <Pressable onPress={() => setMenuOpen(true)} hitSlop={8} accessibilityLabel="Ещё">
             <Ionicons name="ellipsis-horizontal" size={21} color={colors.ink} />
           </Pressable>
         </View>
@@ -183,6 +201,15 @@ export default function RecordingDetailScreen() {
             {formatTimecode(rec.durationSec)}
           </Txt>
         </View>
+        {/* Отправка в Inbox автоматическая — показываем её след, тост живёт недолго. */}
+        {rec.sentToInbox ? (
+          <View style={styles.sentRow}>
+            <Ionicons name="checkmark-circle" size={13} color={colors.textSecondary} />
+            <Txt size={fontSize.caption} color={colors.textSecondary}>
+              Отправлено в Modus
+            </Txt>
+          </View>
+        ) : null}
       </View>
 
       {generating ? (
@@ -301,13 +328,6 @@ export default function RecordingDetailScreen() {
                   {summary.conclusion}
                 </Txt>
               ) : null}
-
-              <Pressable onPress={() => regen.mutate()} disabled={regen.isPending} style={styles.regenBtn}>
-                <Ionicons name="refresh" size={15} color={colors.ink} />
-                <Txt weight="medium" size={fontSize.small}>
-                  {regen.isPending ? 'Генерируем…' : 'Перегенерировать'}
-                </Txt>
-              </Pressable>
             </ScrollView>
           </Reveal>
         ) : (
@@ -393,10 +413,57 @@ export default function RecordingDetailScreen() {
             <View style={styles.toast}>
               <Ionicons name="checkmark-circle" size={16} color={colors.onAccent} />
               <Txt weight="medium" size={fontSize.small} color={colors.onAccent}>
-                Отправлено в Modus
+                {toast}
               </Txt>
             </View>
           </Reveal>
+        </View>
+      ) : null}
+
+      {/* Шеринг: ссылка + выгрузка файлом */}
+      {shareOpen ? (
+        <View style={styles.overlay}>
+          <Pressable style={styles.overlayFill} onPress={() => setShareOpen(false)} />
+          <View style={styles.sheet}>
+            <View style={styles.grabber} />
+
+            <Txt weight="bold" size={fontSize.lg} style={styles.sheetTitle}>
+              Поделиться
+            </Txt>
+            <Pressable style={styles.sheetRow} onPress={onShareLink}>
+              <Ionicons name="link-outline" size={19} color={colors.ink} />
+              <Txt size={fontSize.base} style={{ flex: 1 }}>
+                Ссылка
+              </Txt>
+              <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+            </Pressable>
+
+            <View style={styles.sheetDivider} />
+
+            <Txt weight="bold" size={fontSize.lg} style={styles.sheetTitle}>
+              Экспорт файлом
+            </Txt>
+            {(
+              [
+                { kind: 'audio' as const, icon: 'pulse-outline' as const, label: 'Аудио', on: true },
+                { kind: 'transcript' as const, icon: 'document-text-outline' as const, label: 'Транскрипт', on: generated },
+                { kind: 'summary' as const, icon: 'list-outline' as const, label: 'Саммари', on: !!summary },
+              ]
+            ).map((row) => (
+              <Pressable
+                key={row.kind}
+                style={styles.sheetRow}
+                disabled={!row.on}
+                onPress={() => onExport(row.kind)}
+              >
+                <Ionicons name={row.icon} size={19} color={row.on ? colors.ink : colors.textMuted} />
+                <Txt size={fontSize.base} color={row.on ? colors.ink : colors.textMuted} style={{ flex: 1 }}>
+                  {row.label}
+                </Txt>
+                <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+              </Pressable>
+            ))}
+          </View>
         </View>
       ) : null}
 
@@ -406,6 +473,22 @@ export default function RecordingDetailScreen() {
           <Pressable style={styles.overlayFill} onPress={() => setMenuOpen(false)} />
           <View style={styles.sheet}>
             <View style={styles.grabber} />
+            {summary ? (
+              <>
+                <Pressable
+                  style={styles.sheetRow}
+                  disabled={regen.isPending}
+                  onPress={() => {
+                    setMenuOpen(false);
+                    regen.mutate(undefined, { onSuccess: () => setToast('Саммари обновлено') });
+                  }}
+                >
+                  <Ionicons name="refresh" size={18} color={colors.ink} />
+                  <Txt size={fontSize.base}>{regen.isPending ? 'Генерируем…' : 'Перегенерировать саммари'}</Txt>
+                </Pressable>
+                <View style={styles.sheetDivider} />
+              </>
+            ) : null}
             <Pressable
               style={styles.sheetRow}
               onPress={() => {
@@ -550,6 +633,7 @@ const makeStyles = (colors: Palette) =>
     topRight: { flexDirection: 'row', alignItems: 'center', gap: spacing.lg },
     head: { paddingHorizontal: spacing.xl, paddingTop: spacing.md },
     metaRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginTop: spacing.sm },
+    sentRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 6 },
     playerBar: {
       position: 'absolute',
       left: 0,
@@ -599,18 +683,6 @@ const makeStyles = (colors: Palette) =>
     concl: { marginTop: spacing.md, lineHeight: 19, fontStyle: 'italic' },
     insight: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 },
     dot: { width: 7, height: 7, borderRadius: 4, backgroundColor: colors.accent },
-    regenBtn: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.sm,
-      alignSelf: 'flex-start',
-      marginTop: spacing.xl,
-      borderWidth: 1,
-      borderColor: colors.hairline,
-      borderRadius: radius.pill,
-      paddingHorizontal: spacing.lg,
-      paddingVertical: spacing.sm,
-    },
     seg: { paddingVertical: 13 },
     segBorder: { borderBottomWidth: 1, borderBottomColor: colors.hairline },
     segHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 },
@@ -693,6 +765,7 @@ const makeStyles = (colors: Palette) =>
       backgroundColor: colors.hairline,
       marginBottom: spacing.sm,
     },
+    sheetTitle: { paddingHorizontal: spacing.xl, paddingTop: spacing.md, paddingBottom: spacing.xs },
     sheetRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingHorizontal: spacing.xl, paddingVertical: spacing.lg },
     sheetDivider: { height: 1, backgroundColor: colors.hairline, marginHorizontal: spacing.xl },
     dialog: { width: '100%', maxWidth: 340, backgroundColor: colors.surface, borderRadius: radius.card, padding: spacing.xl },

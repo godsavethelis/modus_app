@@ -76,10 +76,14 @@ src/
 | `recordingsApi.patchRecording` | `PATCH /api/mobile/recording/:id` |
 | `recordingsApi.deleteRecording` | `DELETE /api/mobile/recording/:id` |
 | `recordingsApi.sendToInbox` | `POST /api/mobile/recording/:id/send-inbox` |
+| `recordingsApi.createShareLink` | `POST /api/mobile/recording/:id/share` |
+| `recordingsApi.exportRecording` | `GET /api/mobile/recording/:id/export?kind=` |
 | `transcribeApi.startTranscription` / `getStatus` | `POST /api/modus/transcribe/start`, `GET /api/modus/transcribe/status` |
 | `transcribeApi.regenerateSummary` | `POST /api/modus/summarize/regenerate` |
 
-**Ещё не подключено к нативу (помечено `TODO(recorder)`):** реальная запись/воспроизведение через `expo-audio` в `app/(app)/record.tsx` и плеер в деталях. Сейчас это имитация (таймер + демо-текст).
+**Как устроен поток обработки.** Загрузка аудио доходит до `ready` и останавливается: транскрипта и саммари ещё нет. Их запускает пользователь кнопкой «Сгенерировать» — идёт `transcribing → summarizing → ready`. Когда саммари готово, запись уезжает в Inbox сама: в моке это делает `transcribeApi.getStatus`, на бэкенде — summarize-job. Ручной `sendToInbox` оставлен как точка для переотправки, UI его не зовёт.
+
+**Ещё не подключено к нативу (помечено `TODO(recorder)`):** реальная запись/воспроизведение через `expo-audio` в `app/(app)/record.tsx` и плеер в деталях. Шеринг ссылки и экспорт файлом тоже мок — нужен нативный share-sheet. Сейчас это имитация (таймер + демо-текст).
 
 ---
 

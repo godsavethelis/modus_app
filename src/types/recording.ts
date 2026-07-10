@@ -66,6 +66,9 @@ export interface RecordingDetail extends Recording {
   summary?: Summary;
 }
 
+/** Что именно выгружаем файлом при шеринге. */
+export type ExportKind = 'audio' | 'transcript' | 'summary';
+
 /** Тело запроса на переименование записи/спикеров. */
 export interface RecordingPatch {
   title?: string;

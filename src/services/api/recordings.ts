@@ -7,7 +7,7 @@
  *   DELETE /api/mobile/recording/:id
  *   POST   /api/mobile/recording/:id/send-inbox
  */
-import type { Recording, RecordingDetail, RecordingPatch } from '@/types';
+import type { ExportKind, Recording, RecordingDetail, RecordingPatch } from '@/types';
 import { mockRecordings } from '../mocks/data';
 import { delay, maybeFail } from './client';
 
@@ -93,6 +93,11 @@ export async function deleteRecording(id: string): Promise<void> {
   if (idx >= 0) mockRecordings.splice(idx, 1);
 }
 
+/**
+ * Ручная отправка в Inbox. UI её не вызывает: готовый текст уезжает в Modus
+ * сам, как только summarize-job закончил (см. transcribe.getStatus).
+ * Оставлено как точка входа для бэкенда, если понадобится переотправка.
+ */
 export async function sendToInbox(id: string): Promise<RecordingDetail> {
   await delay(700);
   // TODO(backend): POST /api/mobile/recording/:id/send-inbox
@@ -100,4 +105,22 @@ export async function sendToInbox(id: string): Promise<RecordingDetail> {
   if (!rec) throw new Error(`Запись ${id} не найдена`);
   rec.sentToInbox = true;
   return rec;
+}
+
+/** Публичная ссылка на запись — для кнопки «Поделиться → Ссылка». */
+export async function createShareLink(id: string): Promise<string> {
+  await delay(500);
+  // TODO(backend): POST /api/mobile/recording/:id/share
+  const rec = mockRecordings.find((r) => r.id === id);
+  if (!rec) throw new Error(`Запись ${id} не найдена`);
+  return `https://app.modus.app/r/${id}`;
+}
+
+/** Экспорт записи файлом. Возвращает адрес готового файла. */
+export async function exportRecording(id: string, kind: ExportKind): Promise<string> {
+  await delay(900);
+  // TODO(backend): GET /api/mobile/recording/:id/export?kind=audio|transcript|summary
+  const rec = mockRecordings.find((r) => r.id === id);
+  if (!rec) throw new Error(`Запись ${id} не найдена`);
+  return kind === 'audio' ? rec.audioUrl : `mock://export/${id}.${kind}.txt`;
 }
