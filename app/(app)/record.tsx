@@ -7,6 +7,7 @@ import { Screen } from '@/components/ui/Screen';
 import { Txt } from '@/components/ui/Txt';
 import { PulseBars } from '@/components/PulseBars';
 import { formatTimecode } from '@/lib/format';
+import { goBack } from '@/lib/nav';
 import { recordingsApi } from '@/services/api';
 import { MOCK_MIC_DENIED } from '@/services/mocks/data';
 import { fontSize, radius, spacing, type Palette } from '@/theme';
@@ -69,7 +70,7 @@ export default function RecordScreen() {
       <Screen>
         <View style={styles.topRow}>
           <View />
-          <Pressable onPress={() => router.back()} hitSlop={10}>
+          <Pressable onPress={() => goBack(router)} hitSlop={10}>
             <Ionicons name="close" size={22} color={colors.textSecondary} />
           </Pressable>
         </View>
@@ -131,7 +132,7 @@ export default function RecordScreen() {
       {/* Основные контролы: без подписей, центры кружков на одной оси. */}
       <View style={styles.controls}>
         <Pressable
-          onPress={() => router.back()}
+          onPress={() => goBack(router)}
           style={styles.circle}
           accessibilityRole="button"
           accessibilityLabel="Отмена"

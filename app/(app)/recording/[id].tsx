@@ -31,6 +31,7 @@ import {
 } from '@/hooks/useRecordings';
 import { useMockPlayer } from '@/hooks/useMockPlayer';
 import { formatDateTime, formatTimecode } from '@/lib/format';
+import { goBack } from '@/lib/nav';
 import { font, fontSize, radius, spacing, type Palette } from '@/theme';
 import { useTheme } from '@/theme/ThemeProvider';
 import type { ExportKind, ProcessingStatus } from '@/types';
@@ -196,7 +197,7 @@ export default function RecordingDetailScreen() {
     player.play();
   }
   function onDelete() {
-    del.mutate(id, { onSuccess: () => router.back() });
+    del.mutate(id, { onSuccess: () => goBack(router) });
   }
   function onShareLink() {
     setShareOpen(false);
@@ -212,7 +213,7 @@ export default function RecordingDetailScreen() {
     <Screen>
       {/* Верхняя панель */}
       <View style={styles.topBar}>
-        <Pressable onPress={() => router.back()} hitSlop={10}>
+        <Pressable onPress={() => goBack(router)} hitSlop={10}>
           <Ionicons name="chevron-back" size={24} color={colors.ink} />
         </Pressable>
         <View style={styles.topRight}>

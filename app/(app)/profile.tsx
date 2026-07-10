@@ -7,6 +7,7 @@ import { Screen } from '@/components/ui/Screen';
 import { Txt } from '@/components/ui/Txt';
 import { Reveal } from '@/components/ui/Reveal';
 import { useAuth } from '@/context/AuthContext';
+import { goBack } from '@/lib/nav';
 import { fontSize, radius, spacing, type Palette } from '@/theme';
 import { useTheme } from '@/theme/ThemeProvider';
 
@@ -21,7 +22,7 @@ export default function ProfileScreen() {
   return (
     <Screen>
       <View style={styles.topRow}>
-        <Pressable onPress={() => router.back()} hitSlop={10}>
+        <Pressable onPress={() => goBack(router)} hitSlop={10}>
           <Ionicons name="arrow-back" size={22} color={colors.ink} />
         </Pressable>
         <Txt weight="bold" size={fontSize.lg}>

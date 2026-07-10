@@ -21,6 +21,15 @@ const SKIP_SEC = 15;
 /** Дорожка одна на все записи — считаем один раз. */
 const BARS = Array.from({ length: BAR_COUNT }, (_, i) => trackAmplitude(i / (BAR_COUNT - 1)));
 
+/** Один ряд линий дорожки. Рисуется дважды: серый низ и красная заливка сверху. */
+const renderBars = (color: string) =>
+  BARS.map((amp, i) => (
+    <View
+      key={i}
+      style={{ width: BAR_W, height: Math.max(2, amp * TRACK_H), borderRadius: 1, backgroundColor: color }}
+    />
+  ));
+
 interface PlayerLike {
   positionSec: number;
   playing: boolean;
@@ -75,18 +84,25 @@ export function AudioPlayer({ player, durationSec, collapsed }: Props) {
             if (trackW > 0) player.seekTo((e.nativeEvent.locationX / trackW) * durationSec);
           }}
         >
-          {BARS.map((amp, i) => (
+          {renderBars(colors.textMuted)}
+          {/* Красная заливка проигранной части: слой тех же линий, обрезанный
+              по прогрессу. Непрерывная — видно движение, а не скачки по линиям. */}
+          {trackW > 0 ? (
             <View
-              key={i}
-              style={{
-                width: BAR_W,
-                height: Math.max(2, amp * TRACK_H),
-                borderRadius: 1,
-                // Строгое «меньше»: на нулевой позиции не подсвечиваем ни одной линии.
-                backgroundColor: i / (BAR_COUNT - 1) < player.progress ? colors.accent : colors.textMuted,
-              }}
+              pointerEvents="none"
+              style={[styles.fill, { width: Math.min(trackW, player.progress * trackW) }]}
+            >
+              <View style={[styles.fillRow, { width: trackW }]}>{renderBars(colors.accent)}</View>
+            </View>
+          ) : null}
+          {/* Метка позиции: на долгих записях заливка растёт медленно,
+              а бегущая черта сразу показывает, что аудио играет. */}
+          {trackW > 0 && (player.playing || player.progress > 0) ? (
+            <View
+              pointerEvents="none"
+              style={[styles.playhead, { left: Math.min(trackW - 2, player.progress * trackW) }]}
             />
-          ))}
+          ) : null}
         </Pressable>
       ) : null}
 
@@ -140,6 +156,21 @@ const makeStyles = (colors: Palette) =>
       justifyContent: 'space-between',
       height: TRACK_H,
       marginTop: spacing.md,
+    },
+    fill: { position: 'absolute', left: 0, top: 0, bottom: 0, overflow: 'hidden' },
+    fillRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      height: TRACK_H,
+    },
+    playhead: {
+      position: 'absolute',
+      top: 2,
+      bottom: 2,
+      width: 2,
+      borderRadius: 1,
+      backgroundColor: colors.accent,
     },
     controls: {
       flexDirection: 'row',
