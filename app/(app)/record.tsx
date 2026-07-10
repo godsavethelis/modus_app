@@ -128,34 +128,34 @@ export default function RecordScreen() {
         </Txt>
       </View>
 
-      {/* Основные контролы */}
+      {/* Основные контролы: без подписей, центры кружков на одной оси. */}
       <View style={styles.controls}>
-        <View style={styles.ctrl}>
-          <Pressable onPress={() => router.back()} style={styles.circle}>
-            <Ionicons name="close" size={22} color={colors.ink} />
-          </Pressable>
-          <Txt size={fontSize.small} color={colors.textSecondary}>
-            Отмена
-          </Txt>
-        </View>
+        <Pressable
+          onPress={() => router.back()}
+          style={styles.circle}
+          accessibilityRole="button"
+          accessibilityLabel="Отмена"
+        >
+          <Ionicons name="close" size={22} color={colors.ink} />
+        </Pressable>
 
-        <View style={styles.ctrl}>
-          <Pressable onPress={onStop} style={[styles.circle, styles.circleMain]}>
-            <View style={styles.stopSquare} />
-          </Pressable>
-          <Txt weight="semibold" size={fontSize.small}>
-            Готово
-          </Txt>
-        </View>
+        <Pressable
+          onPress={onStop}
+          style={[styles.circle, styles.circleMain]}
+          accessibilityRole="button"
+          accessibilityLabel="Готово"
+        >
+          <View style={styles.stopSquare} />
+        </Pressable>
 
-        <View style={styles.ctrl}>
-          <Pressable onPress={() => setPaused((p) => !p)} style={styles.circle}>
-            <Ionicons name={paused ? 'play' : 'pause'} size={20} color={colors.ink} />
-          </Pressable>
-          <Txt size={fontSize.small} color={colors.textSecondary}>
-            {paused ? 'Продолжить' : 'Пауза'}
-          </Txt>
-        </View>
+        <Pressable
+          onPress={() => setPaused((p) => !p)}
+          style={styles.circle}
+          accessibilityRole="button"
+          accessibilityLabel={paused ? 'Продолжить' : 'Пауза'}
+        >
+          <Ionicons name={paused ? 'play' : 'pause'} size={20} color={colors.ink} />
+        </Pressable>
       </View>
 
     </Screen>
@@ -178,13 +178,12 @@ const makeStyles = (colors: Palette) =>
     transcriptLabel: { letterSpacing: 1.5, marginBottom: spacing.sm, textAlign: 'center' },
     controls: {
       flexDirection: 'row',
-      alignItems: 'flex-start',
+      alignItems: 'center',
       justifyContent: 'center',
       gap: spacing.xxl,
       paddingTop: spacing.lg,
-      paddingBottom: spacing.xxl,
+      paddingBottom: 46,
     },
-    ctrl: { alignItems: 'center', gap: spacing.sm },
     circle: {
       width: 60,
       height: 60,

@@ -88,6 +88,27 @@ export function useDeleteRecording() {
   });
 }
 
+/** Перезапуск упавшей обработки. Сбрасывает и опрос статуса, и данные записи. */
+export function useRetryProcessing(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => transcribeApi.retryProcessing(id),
+    onSuccess: () => {
+      qc.removeQueries({ queryKey: ['transcribe-status', id] });
+      qc.invalidateQueries({ queryKey: keys.list });
+    },
+  });
+}
+
+/** Первая генерация саммари — по кнопке на вкладке «Саммари». */
+export function useGenerateSummary(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => transcribeApi.generateSummary(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: keys.detail(id) }),
+  });
+}
+
 export function useRegenerateSummary(id: string) {
   const qc = useQueryClient();
   return useMutation({

@@ -11,8 +11,6 @@ import { fontSize, radius, spacing, type Palette } from '@/theme';
 import { useTheme } from '@/theme/ThemeProvider';
 import type { Recording } from '@/types';
 
-const PROCESSING = ['uploading', 'transcribing', 'summarizing'];
-
 export default function HomeScreen() {
   const router = useRouter();
   const { colors } = useTheme();
@@ -34,8 +32,8 @@ export default function HomeScreen() {
   }
 
   function openRecording(rec: Recording) {
-    // Пока запись обрабатывается, открывать нечего — карточка показывает прогресс.
-    if (PROCESSING.includes(rec.status)) return;
+    // Запись открывается на любой стадии: пока идёт расшифровка,
+    // экран записи сам показывает прогресс генерации текста.
     router.push(`/recording/${rec.id}`);
   }
 

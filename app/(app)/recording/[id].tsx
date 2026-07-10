@@ -3,22 +3,41 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, TextInput, View }
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { DotCloud } from '@/components/DotCloud';
+import { ProgressBar } from '@/components/ProgressBar';
 import { Screen } from '@/components/ui/Screen';
 import { Txt } from '@/components/ui/Txt';
 import { Reveal } from '@/components/ui/Reveal';
 import {
   useRecording,
   usePatchRecording,
+  useProcessingStatus,
+  useRetryProcessing,
   useSendToInbox,
   useDeleteRecording,
+  useGenerateSummary,
   useRegenerateSummary,
 } from '@/hooks/useRecordings';
 import { useMockPlayer } from '@/hooks/useMockPlayer';
 import { formatDateTime, formatTimecode } from '@/lib/format';
 import { font, fontSize, radius, spacing, type Palette } from '@/theme';
 import { useTheme } from '@/theme/ThemeProvider';
+import type { ProcessingStatus } from '@/types';
 
 type Tab = 'transcript' | 'summary';
+
+/** Стадии, на которых текст из аудио ещё генерируется. */
+const IN_PROGRESS: ProcessingStatus[] = ['uploading', 'transcribing'];
+
+const STAGE_TITLE: Partial<Record<ProcessingStatus, string>> = {
+  uploading: 'Загружаем аудио',
+  transcribing: 'Распознаём речь',
+};
+
+const STAGE_TAG: Partial<Record<ProcessingStatus, string>> = {
+  uploading: 'ЗАГРУЗКА',
+  transcribing: 'РАСШИФРОВКА',
+};
 
 const WAVE = Array.from({ length: 44 }, (_, i) => 4 + Math.round(22 * Math.abs(Math.sin(i * 0.6))));
 
@@ -26,9 +45,13 @@ export default function RecordingDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { data: rec, isLoading } = useRecording(id);
+  // Пока идёт расшифровка — опрашиваем статус; на ready экран сам переключится.
+  const { data: live } = useProcessingStatus(id, !!rec && IN_PROGRESS.includes(rec.status));
   const patch = usePatchRecording(id);
   const send = useSendToInbox(id);
   const del = useDeleteRecording();
+  const retry = useRetryProcessing(id);
+  const gen = useGenerateSummary(id);
   const regen = useRegenerateSummary(id);
   const player = useMockPlayer(rec?.durationSec ?? 0);
   const { colors } = useTheme();
@@ -36,7 +59,8 @@ export default function RecordingDetailScreen() {
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
   const [tab, setTab] = useState<Tab>('summary');
-  const [editingSpeaker, setEditingSpeaker] = useState<string | null>(null);
+  /** Спикер, которого переименовываем в попапе (null — попап закрыт). */
+  const [speakerEdit, setSpeakerEdit] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
   const [waveW, setWaveW] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -55,14 +79,24 @@ export default function RecordingDetailScreen() {
     );
   }
 
-  const isReady = rec.status === 'ready';
+  // Свежий статус приходит из опроса, пока он идёт; иначе берём из записи.
+  const stage = live?.status ?? rec.status;
+  const progress = live?.progress ?? rec.progress ?? 0;
+  const generating = IN_PROGRESS.includes(stage);
+  const isFailed = stage === 'failed';
+  const isReady = stage === 'ready';
   const alreadySent = rec.sentToInbox || toast;
   const summary = rec.summary;
   const speakerName = (sid: string) => rec.speakers.find((s) => s.id === sid)?.label ?? 'Спикер';
 
-  function commitSpeaker(sid: string) {
-    if (draft.trim()) patch.mutate({ speakers: { [sid]: draft.trim() } });
-    setEditingSpeaker(null);
+  function openSpeakerEdit(sid: string) {
+    setDraft(speakerName(sid));
+    setSpeakerEdit(sid);
+  }
+  /** Имя сохраняется на спикере, поэтому подставляется во все его реплики. */
+  function commitSpeaker() {
+    if (speakerEdit && draft.trim()) patch.mutate({ speakers: { [speakerEdit]: draft.trim() } });
+    setSpeakerEdit(null);
     setDraft('');
   }
   function jumpTo(sec: number) {
@@ -93,7 +127,7 @@ export default function RecordingDetailScreen() {
             <Ionicons
               name={alreadySent ? 'checkmark-circle' : 'paper-plane-outline'}
               size={21}
-              color={alreadySent ? colors.textSecondary : isReady ? colors.accent : colors.textMuted}
+              color={alreadySent ? colors.textSecondary : isReady ? colors.ink : colors.textMuted}
             />
           </Pressable>
           <Pressable onPress={() => setMenuOpen(true)} hitSlop={8}>
@@ -117,6 +151,61 @@ export default function RecordingDetailScreen() {
         </View>
       </View>
 
+      {generating ? (
+        /* Текст из аудио ещё генерируется: вкладки и плеер показывать нечего. */
+        <Reveal key="generating" delay={40} offset={10} style={styles.tabBody}>
+          <View style={[styles.stateWrap, { paddingBottom: insets.bottom + spacing.xxl }]}>
+            <View style={styles.stateCenter}>
+              <DotCloud size={200} count={38} />
+              <Txt weight="bold" size={fontSize.title} align="center" style={styles.stateTitle}>
+                {STAGE_TITLE[stage] ?? 'Обрабатываем'}
+              </Txt>
+              <Txt size={fontSize.small} color={colors.textSecondary} align="center" style={styles.stateHint}>
+                Распознаём речь и разделяем её по спикерам. Транскрипт появится здесь, а саммари можно будет
+                сгенерировать следом.
+              </Txt>
+            </View>
+            <View style={styles.stateFooter}>
+              <View style={styles.stateMeta}>
+                <Txt weight="semibold" size={fontSize.micro} color={colors.accent} style={{ letterSpacing: 1.4 }}>
+                  {STAGE_TAG[stage] ?? 'ОБРАБОТКА'}
+                </Txt>
+                <Txt weight="medium" size={fontSize.micro} color={colors.textSecondary}>
+                  {Math.round(progress * 100)}%
+                </Txt>
+              </View>
+              <ProgressBar progress={progress} />
+            </View>
+          </View>
+        </Reveal>
+      ) : isFailed ? (
+        <Reveal key="failed" delay={40} offset={10} style={styles.tabBody}>
+          <View style={[styles.stateWrap, { paddingBottom: insets.bottom + spacing.xxl }]}>
+            <View style={styles.stateCenter}>
+              <View style={styles.failIcon}>
+                <Ionicons name="alert-circle-outline" size={32} color={colors.dangerText} />
+              </View>
+              <Txt weight="bold" size={fontSize.title} align="center" style={styles.stateTitle}>
+                Не удалось расшифровать
+              </Txt>
+              <Txt size={fontSize.small} color={colors.textSecondary} align="center" style={styles.stateHint}>
+                Аудио сохранено. Можно запустить расшифровку ещё раз.
+              </Txt>
+            </View>
+            <Pressable onPress={() => retry.mutate()} disabled={retry.isPending} style={styles.retryBtn}>
+              {retry.isPending ? (
+                <ActivityIndicator color={colors.onAccent} size="small" />
+              ) : (
+                <Ionicons name="refresh" size={16} color={colors.onAccent} />
+              )}
+              <Txt weight="semibold" size={fontSize.base} color={colors.onAccent}>
+                {retry.isPending ? 'Запускаем…' : 'Повторить'}
+              </Txt>
+            </Pressable>
+          </View>
+        </Reveal>
+      ) : (
+        <>
       {/* Сегмент-контрол */}
       <View style={styles.segment}>
         {(
@@ -138,117 +227,125 @@ export default function RecordingDetailScreen() {
       </View>
 
       {tab === 'summary' ? (
-        <Reveal key="summary" delay={20} offset={8} style={styles.tabBody}>
-          <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
-            {!summary ? (
-              <Txt size={fontSize.body} color={colors.textSecondary}>
-                Саммари появится после обработки.
+        summary ? (
+          <Reveal key="summary" delay={20} offset={8} style={styles.tabBody}>
+            <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
+              <Txt weight="bold" size={fontSize.lg} style={styles.h}>
+                Обзор
               </Txt>
-            ) : (
-              <>
-                <Txt weight="bold" size={fontSize.lg} style={styles.h}>
-                  Обзор
-                </Txt>
-                  <Txt size={fontSize.base} color={colors.ink} style={styles.para}>
-                    {summary.theme}
-                  </Txt>
+              <Txt size={fontSize.base} color={colors.ink} style={styles.para}>
+                {summary.theme}
+              </Txt>
 
-                  <Txt weight="bold" size={fontSize.lg} style={styles.h}>
-                    Заметки
-                  </Txt>
-                  {(summary.notes ?? []).map((note, i) => (
-                    <View key={i} style={styles.note}>
-                      <View style={styles.noteHead}>
-                        <Txt weight="bold" size={fontSize.base} color={colors.accent} style={{ width: 20 }}>
-                          {i + 1}.
-                        </Txt>
-                        <Txt weight="semibold" size={fontSize.base} color={colors.ink} style={{ flex: 1 }}>
-                          {note.title}
-                        </Txt>
-                      </View>
-                      {note.points.map((p, j) => (
-                        <View key={j} style={styles.bullet}>
-                          <Txt size={fontSize.base} color={colors.textMuted}>
-                            •
-                          </Txt>
-                          <Txt size={fontSize.small} color={colors.ink} style={{ flex: 1, lineHeight: 19 }}>
-                            {p}
-                          </Txt>
-                        </View>
-                      ))}
+              <Txt weight="bold" size={fontSize.lg} style={styles.h}>
+                Заметки
+              </Txt>
+              {(summary.notes ?? []).map((note, i) => (
+                <View key={i} style={styles.note}>
+                  <View style={styles.noteHead}>
+                    <Txt weight="bold" size={fontSize.base} color={colors.accent} style={{ width: 20 }}>
+                      {i + 1}.
+                    </Txt>
+                    <Txt weight="semibold" size={fontSize.base} color={colors.ink} style={{ flex: 1 }}>
+                      {note.title}
+                    </Txt>
+                  </View>
+                  {note.points.map((p, j) => (
+                    <View key={j} style={styles.bullet}>
+                      <Txt size={fontSize.base} color={colors.textMuted}>
+                        •
+                      </Txt>
+                      <Txt size={fontSize.small} color={colors.ink} style={{ flex: 1, lineHeight: 19 }}>
+                        {p}
+                      </Txt>
                     </View>
                   ))}
-                  {summary.conclusion ? (
-                    <Txt size={fontSize.small} color={colors.textSecondary} style={styles.concl}>
-                      {summary.conclusion}
-                    </Txt>
-                  ) : null}
-              </>
-            )}
+                </View>
+              ))}
+              {summary.conclusion ? (
+                <Txt size={fontSize.small} color={colors.textSecondary} style={styles.concl}>
+                  {summary.conclusion}
+                </Txt>
+              ) : null}
 
-            {summary ? (
               <Pressable onPress={() => regen.mutate()} disabled={regen.isPending} style={styles.regenBtn}>
                 <Ionicons name="refresh" size={15} color={colors.ink} />
                 <Txt weight="medium" size={fontSize.small}>
                   {regen.isPending ? 'Генерируем…' : 'Перегенерировать'}
                 </Txt>
               </Pressable>
-            ) : null}
-          </ScrollView>
-        </Reveal>
+            </ScrollView>
+          </Reveal>
+        ) : (
+          /* Саммари ещё нет — пользователь запускает генерацию сам. */
+          <Reveal key="summary-empty" delay={20} offset={8} style={styles.tabBody}>
+            <View style={styles.genWrap}>
+              <View style={styles.genCenter}>
+                <View style={styles.genIcon}>
+                  <Ionicons name="document-text-outline" size={26} color={colors.textMuted} />
+                </View>
+                <Txt weight="bold" size={fontSize.lg} align="center">
+                  Готово к генерации
+                </Txt>
+                <Txt size={fontSize.small} color={colors.textSecondary} align="center" style={styles.genHint}>
+                  Саммари появится здесь после генерации
+                </Txt>
+              </View>
+              <Pressable
+                onPress={() => gen.mutate()}
+                disabled={gen.isPending}
+                style={[styles.genBtn, gen.isPending && styles.genBtnOff]}
+              >
+                {gen.isPending ? (
+                  <ActivityIndicator color={colors.onAccent} size="small" />
+                ) : (
+                  <Ionicons name="sparkles" size={16} color={colors.accent} />
+                )}
+                <Txt weight="semibold" size={fontSize.base} color={colors.onAccent}>
+                  {gen.isPending ? 'Генерируем…' : 'Сгенерировать'}
+                </Txt>
+              </Pressable>
+            </View>
+          </Reveal>
+        )
       ) : (
         <Reveal key="transcript" delay={20} offset={8} style={styles.tabBody}>
           <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
             {rec.segments.length === 0 ? (
               <Txt size={fontSize.body} color={colors.textSecondary}>
-                Транскрипт появится после обработки.
+                В этой записи не распознано ни одной реплики.
               </Txt>
             ) : (
-              rec.segments.map((seg, i) => {
-                const isEditing = editingSpeaker === seg.speakerId;
-                return (
-                  <Pressable
-                    key={seg.id}
-                    onPress={() => !isEditing && jumpTo(seg.start)}
-                    style={[styles.seg, i < rec.segments.length - 1 && styles.segBorder]}
-                  >
-                    <View style={styles.segHeader}>
-                      {isEditing ? (
-                        <TextInput
-                          value={draft}
-                          onChangeText={setDraft}
-                          autoFocus
-                          onSubmitEditing={() => commitSpeaker(seg.speakerId)}
-                          onBlur={() => commitSpeaker(seg.speakerId)}
-                          style={styles.speakerInput}
-                        />
-                      ) : (
-                        <Pressable
-                          style={styles.speakerTap}
-                          onPress={() => {
-                            setEditingSpeaker(seg.speakerId);
-                            setDraft(speakerName(seg.speakerId));
-                          }}
-                        >
-                          <Txt weight="bold" size={10} color={i % 2 === 0 ? colors.accent : colors.ink} style={{ letterSpacing: 0.5, textTransform: 'uppercase' }}>
-                            {speakerName(seg.speakerId)}
-                          </Txt>
-                          <Ionicons name="pencil" size={12} color={colors.textMuted} />
-                        </Pressable>
-                      )}
-                      <View style={styles.segTime}>
-                        <Ionicons name="play" size={9} color={colors.textMuted} />
-                        <Txt size={10} color={colors.textMuted}>
-                          {formatTimecode(seg.start)}
-                        </Txt>
-                      </View>
+              rec.segments.map((seg, i) => (
+                <Pressable
+                  key={seg.id}
+                  onPress={() => jumpTo(seg.start)}
+                  style={[styles.seg, i < rec.segments.length - 1 && styles.segBorder]}
+                >
+                  <View style={styles.segHeader}>
+                    <Pressable style={styles.speakerTap} onPress={() => openSpeakerEdit(seg.speakerId)} hitSlop={6}>
+                      <Txt
+                        weight="bold"
+                        size={10}
+                        color={i % 2 === 0 ? colors.accent : colors.ink}
+                        style={{ letterSpacing: 0.5, textTransform: 'uppercase' }}
+                      >
+                        {speakerName(seg.speakerId)}
+                      </Txt>
+                      <Ionicons name="pencil" size={12} color={colors.textMuted} />
+                    </Pressable>
+                    <View style={styles.segTime}>
+                      <Ionicons name="play" size={9} color={colors.textMuted} />
+                      <Txt size={10} color={colors.textMuted}>
+                        {formatTimecode(seg.start)}
+                      </Txt>
                     </View>
-                    <Txt size={fontSize.small} color={colors.ink} style={{ lineHeight: 18 }}>
-                      {seg.text}
-                    </Txt>
-                  </Pressable>
-                );
-              })
+                  </View>
+                  <Txt size={fontSize.small} color={colors.ink} style={{ lineHeight: 18 }}>
+                    {seg.text}
+                  </Txt>
+                </Pressable>
+              ))
             )}
           </ScrollView>
         </Reveal>
@@ -282,6 +379,8 @@ export default function RecordingDetailScreen() {
           {formatTimecode(player.positionSec)} / {formatTimecode(rec.durationSec)}
         </Txt>
       </View>
+        </>
+      )}
 
       {toast ? (
         <View style={styles.toastWrap} pointerEvents="none">
@@ -326,6 +425,42 @@ export default function RecordingDetailScreen() {
                 Удалить
               </Txt>
             </Pressable>
+          </View>
+        </View>
+      ) : null}
+
+      {/* Имя спикера — подставится во все его реплики */}
+      {speakerEdit ? (
+        <View style={[styles.overlay, styles.overlayCenter]}>
+          <Pressable style={styles.overlayFill} onPress={() => setSpeakerEdit(null)} />
+          <View style={styles.dialog}>
+            <Txt weight="bold" size={fontSize.lg}>
+              Кто говорит?
+            </Txt>
+            <Txt size={fontSize.small} color={colors.textSecondary} style={{ marginTop: 6, lineHeight: 18 }}>
+              Имя подставится во все реплики этого спикера.
+            </Txt>
+            <TextInput
+              value={draft}
+              onChangeText={setDraft}
+              autoFocus
+              placeholder="Например, Андрей"
+              placeholderTextColor={colors.textMuted}
+              onSubmitEditing={commitSpeaker}
+              style={styles.dialogInput}
+            />
+            <View style={styles.dialogActions}>
+              <Pressable onPress={() => setSpeakerEdit(null)} style={styles.dialogBtn}>
+                <Txt size={fontSize.base} color={colors.textSecondary}>
+                  Отмена
+                </Txt>
+              </Pressable>
+              <Pressable onPress={commitSpeaker} style={styles.dialogBtn}>
+                <Txt weight="semibold" size={fontSize.base} color={colors.accent}>
+                  Сохранить
+                </Txt>
+              </Pressable>
+            </View>
           </View>
         </View>
       ) : null}
@@ -476,15 +611,55 @@ const makeStyles = (colors: Palette) =>
     segHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 },
     speakerTap: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     segTime: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-    speakerInput: {
-      fontFamily: font.bold,
-      fontSize: 11,
-      color: colors.ink,
-      padding: 0,
-      minWidth: 120,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.accent,
+    /** Экраны состояний (генерация текста, ошибка): контент по центру, действие внизу.
+        Плеера здесь нет, поэтому нижний отступ добавляется из safe area. */
+    stateWrap: { flex: 1, paddingHorizontal: spacing.xl },
+    stateCenter: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+    stateTitle: { marginTop: spacing.lg },
+    stateHint: { lineHeight: 18, marginTop: spacing.sm, maxWidth: 290 },
+    stateFooter: { gap: spacing.sm },
+    stateMeta: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+    failIcon: {
+      width: 72,
+      height: 72,
+      borderRadius: 36,
+      backgroundColor: colors.dangerBg,
+      alignItems: 'center',
+      justifyContent: 'center',
     },
+    retryBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: spacing.sm,
+      backgroundColor: colors.accent,
+      borderRadius: radius.card,
+      paddingVertical: spacing.lg,
+    },
+    /** Пустое саммари: текст по центру, кнопка прижата над плеером. */
+    genWrap: { flex: 1, paddingHorizontal: spacing.xl, paddingBottom: 104 },
+    genCenter: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.sm },
+    genIcon: {
+      width: 62,
+      height: 62,
+      borderRadius: radius.card,
+      borderWidth: 1,
+      borderColor: colors.hairline,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: spacing.md,
+    },
+    genHint: { lineHeight: 18, maxWidth: 260 },
+    genBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: spacing.sm,
+      backgroundColor: colors.ink,
+      borderRadius: radius.card,
+      paddingVertical: spacing.lg,
+    },
+    genBtnOff: { opacity: 0.45 },
     toastWrap: { position: 'absolute', left: 0, right: 0, bottom: 96, alignItems: 'center' },
     toast: {
       flexDirection: 'row',

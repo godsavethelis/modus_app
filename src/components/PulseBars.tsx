@@ -1,12 +1,15 @@
 /**
  * «Пульс» записи — плотный ряд тонких вертикальных линий, как звуковая волна.
- * Огибающая из бегущих синусоид даёт живые «лепестки», каждая линия чуть
- * дрожит сама по себе. Монохром из темы (тёмные линии на светлом, светлые
- * на тёмном), так что работает в обеих версиях. На паузе замирает и гаснет.
+ * Вся волна дышит в такт речи: слоги внутри слова (~4 Гц), между словами —
+ * короткие провалы до тишины. Поверх бегут пространственные лепестки, поэтому
+ * ряд не выглядит как один общий эквалайзер. Монохром из темы (тёмные линии на
+ * светлом, светлые на тёмном), так что работает в обеих версиях.
+ * На паузе замирает и гаснет.
  */
 import { useEffect, useRef, useState } from 'react';
 import { useWindowDimensions, View, type LayoutChangeEvent } from 'react-native';
 import Svg, { Rect } from 'react-native-svg';
+import { shape, speechEnergy } from '@/lib/pulseWave';
 import { useTheme } from '@/theme/ThemeProvider';
 
 interface Props {
@@ -21,17 +24,6 @@ const BAR_W = 2.5;
 const GAP = 4;
 /** Минимальная высота линии — «тишина». */
 const MIN_H = 3;
-
-/**
- * Огибающая в точке u (0..1) в момент t: произведение двух медленных волн
- * даёт крупные лепестки с провалами, третья добавляет мелкую рябь.
- */
-function envelope(u: number, t: number): number {
-  const a = 0.55 + 0.45 * Math.sin(u * Math.PI * 2 * 1.2 - t * 1.6 + 0.7);
-  const b = 0.5 + 0.5 * Math.sin(u * Math.PI * 2 * 2.6 + t * 1.1 + 2.4);
-  const ripple = 0.85 + 0.15 * Math.sin(u * Math.PI * 2 * 9 + t * 5.2);
-  return Math.max(0.03, a * b * ripple);
-}
 
 export function PulseBars({ width: widthProp, height = 160, paused = false }: Props) {
   const { colors } = useTheme();
@@ -74,9 +66,11 @@ export function PulseBars({ width: widthProp, height = 160, paused = false }: Pr
   const count = Math.floor((width - GAP) / (BAR_W + GAP));
   const startX = (width - count * (BAR_W + GAP) + GAP) / 2;
   const mid = height / 2;
+  const energy = speechEnergy(t);
+  const span = height - 8 - MIN_H;
   const bars = Array.from({ length: count }, (_, i) => {
     const u = i / (count - 1);
-    const h = Math.max(MIN_H, envelope(u, t) * (height - 8));
+    const h = MIN_H + shape(u, t) * energy * span;
     return { x: startX + i * (BAR_W + GAP), y: mid - h / 2, h };
   });
 

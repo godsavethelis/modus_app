@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useRef } from 'react';
-import { Animated, Easing, Pressable, StyleSheet, View } from 'react-native';
+import { useMemo } from 'react';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { ProgressBar } from './ProgressBar';
 import { Txt } from './ui/Txt';
 import { useProcessingStatus } from '@/hooks/useRecordings';
 import { formatDateTime, formatDuration } from '@/lib/format';
@@ -32,16 +33,6 @@ export function RecordingCard({ recording, onPress }: Props) {
   const stage = live?.status ?? recording.status;
   const progress = live?.progress ?? recording.progress ?? 0;
 
-  const bar = useRef(new Animated.Value(0)).current;
-  useEffect(() => {
-    Animated.timing(bar, {
-      toValue: progress,
-      duration: 700,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: false,
-    }).start();
-  }, [progress, bar]);
-
   const showLoader = isProcessing && stage !== 'ready';
 
   return (
@@ -54,14 +45,7 @@ export function RecordingCard({ recording, onPress }: Props) {
           <Txt weight="semibold" size={9.5} color={stage === 'failed' ? colors.dangerText : colors.accent} style={{ letterSpacing: 1.2 }}>
             {STAGE_LABEL[stage] ?? 'ОБРАБОТКА…'}
           </Txt>
-          <View style={styles.track}>
-            <Animated.View
-              style={[
-                styles.fill,
-                { width: bar.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }) },
-              ]}
-            />
-          </View>
+          <ProgressBar progress={progress} />
         </View>
       ) : (
         <Txt size={10.5} color={colors.textMuted} style={{ marginTop: spacing.sm }}>
@@ -85,6 +69,4 @@ const makeStyles = (c: Palette) =>
     },
     pressed: { opacity: 0.9, transform: [{ scale: 0.985 }] },
     procWrap: { marginTop: spacing.sm, gap: 7 },
-    track: { height: 3, borderRadius: 2, backgroundColor: c.chipBg, overflow: 'hidden' },
-    fill: { height: '100%', borderRadius: 2, backgroundColor: c.accent },
   });

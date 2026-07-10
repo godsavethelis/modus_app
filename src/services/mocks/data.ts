@@ -3,7 +3,7 @@
  * При подключении backend этот файл удаляется, а функции в src/services/api
  * начинают ходить в реальную сеть.
  */
-import type { ProcessingStatus, RecordingDetail, User } from '@/types';
+import type { ProcessingStatus, RecordingDetail, Speaker, Summary, TranscriptSegment, User } from '@/types';
 
 export const mockUser: User = {
   id: 'u_1',
@@ -105,7 +105,7 @@ const presentation: RecordingDetail = {
   title: '03-29 Презентация: Интерактивные форматы и рефлексия',
   createdAt: '2025-03-29T10:12:00.000Z',
   durationSec: 87 * 60,
-  status: 'summarizing',
+  status: 'transcribing',
   progress: 0.48,
   sentToInbox: false,
   audioUrl: 'mock://audio/r_3.m4a',
@@ -174,16 +174,18 @@ const EXTRA_TITLES = [
 ];
 
 const extraRecordings: RecordingDetail[] = EXTRA_TITLES.map((title, i) => {
-  const status: ProcessingStatus = i % 11 === 0 ? 'failed' : i % 7 === 0 ? 'summarizing' : 'ready';
+  const status: ProcessingStatus = i % 11 === 0 ? 'failed' : i % 7 === 0 ? 'transcribing' : 'ready';
   const date = new Date(2025, 5, Math.max(1, 25 - i), 9 + (i % 8), (i * 7) % 60);
   const isReady = status === 'ready';
+  // Часть готовых записей — без саммари: на них видно кнопку «Сгенерировать».
+  const hasSummary = isReady && i % 3 !== 1;
   return {
     id: `r_e${i}`,
     title,
     createdAt: date.toISOString(),
     durationSec: (5 + ((i * 13) % 105)) * 60,
     status,
-    progress: status === 'summarizing' ? 0.6 : undefined,
+    progress: status === 'transcribing' ? 0.6 : undefined,
     sentToInbox: isReady && i % 5 === 0,
     audioUrl: `mock://audio/r_e${i}.m4a`,
     speakers: [
@@ -196,11 +198,61 @@ const extraRecordings: RecordingDetail[] = EXTRA_TITLES.map((title, i) => {
           { id: 'g2', speakerId: 's2', start: 16, end: 30, text: 'Договорились о следующих шагах.' },
         ]
       : [],
-    summary: isReady
+    summary: hasSummary
       ? { theme: `Обсуждение: ${title.toLowerCase()}.`, keywords: ['встреча'], nextSteps: ['Зафиксировать договорённости'] }
       : undefined,
   };
 });
+
+/**
+ * Транскрипт, который «распознаётся» для только что сделанной записи.
+ * Повторяет демо-текст, бегущий на экране записи.
+ * TODO(backend): придёт из transcribe-пайплайна вместе со статусом ready.
+ */
+export const newRecordingSpeakers: Speaker[] = [
+  { id: 's1', label: 'Спикер 1' },
+  { id: 's2', label: 'Спикер 2' },
+];
+
+export const newRecordingSegments: TranscriptSegment[] = [
+  { id: 'n1', speakerId: 's1', start: 1, end: 9, text: 'Давайте зафиксируем цели на спринт и разнесём задачи по владельцам.' },
+  { id: 'n2', speakerId: 's2', start: 10, end: 19, text: 'Первый блок — это загрузка аудио, дальше статусы обработки.' },
+  { id: 'n3', speakerId: 's1', start: 20, end: 31, text: 'Тогда к пятнице собираем прототип и показываем команде на демо.' },
+  { id: 'n4', speakerId: 's2', start: 32, end: 44, text: 'Хорошо, я возьму загрузку, а статусы обработки закроем следом.' },
+];
+
+/**
+ * Саммари, которое «генерируется» по кнопке для записи без него.
+ * TODO(backend): вернёт summarize-job.
+ */
+export function makeMockSummary(): Summary {
+  return {
+    theme: 'Команда зафиксировала цели спринта и распределила задачи по владельцам: сначала загрузка аудио, затем статусы обработки.',
+    keywords: ['спринт', 'загрузка аудио', 'статусы обработки', 'демо'],
+    nextSteps: [
+      'Закрыть загрузку аудио',
+      'Подключить статусы обработки',
+      'Собрать прототип к пятнице',
+    ],
+    conclusion: 'Команда договорилась о приоритетах спринта и показывает прототип на демо в пятницу.',
+    notes: [
+      {
+        title: 'Цели спринта',
+        points: [
+          'Зафиксировали цели и разнесли задачи по владельцам',
+          'Приоритет — загрузка аудио, следом статусы обработки',
+        ],
+      },
+      {
+        title: 'Договорённости',
+        points: [
+          'Прототип собираем к пятнице',
+          'Показываем команде на демо',
+        ],
+      },
+    ],
+  };
+}
 
 /** In-memory «база» прототипа. Мутируется мок-API (rename/delete/send). ~30 записей. */
 export const mockRecordings: RecordingDetail[] = [
