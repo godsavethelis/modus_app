@@ -1,5 +1,15 @@
-import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  ActivityIndicator,
+  Animated,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  View,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
+} from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { AudioPlayer } from '@/components/AudioPlayer';
@@ -76,6 +86,37 @@ export default function RecordingDetailScreen() {
   const [draftTitle, setDraftTitle] = useState('');
   /** Текст тоста внизу экрана; null — тоста нет. */
   const [toast, setToast] = useState<string | null>(null);
+
+  // Скролл текста «схлопывает» блоки выше: заголовок уезжает,
+  // дорожка плеера сворачивается. Наверху всё раскрывается обратно.
+  const collapseAnim = useRef(new Animated.Value(0)).current;
+  const collapsedRef = useRef(false);
+  const [collapsed, setCollapsed] = useState(false);
+  const [headH, setHeadH] = useState(0);
+
+  const setCollapse = useCallback(
+    (next: boolean) => {
+      if (collapsedRef.current === next) return;
+      collapsedRef.current = next;
+      setCollapsed(next);
+      Animated.spring(collapseAnim, { toValue: next ? 1 : 0, friction: 10, tension: 90, useNativeDriver: false }).start();
+    },
+    [collapseAnim],
+  );
+
+  function onBodyScroll(e: NativeSyntheticEvent<NativeScrollEvent>) {
+    const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
+    // Схлопываем только длинный контент: короткому после схлопывания
+    // не хватит прокрутки, и шапка начнёт дёргаться туда-обратно.
+    const longEnough = contentSize.height > layoutMeasurement.height + 220;
+    if (contentOffset.y > 64 && longEnough) setCollapse(true);
+    else if (contentOffset.y < 16) setCollapse(false);
+  }
+
+  // При смене вкладки скролл начинается с нуля — раскрываем шапку.
+  useEffect(() => {
+    setCollapse(false);
+  }, [tab, setCollapse]);
 
   // Готовый текст уезжает в Modus сам — сообщаем об этом, когда генерация закончилась.
   const finishedNow = live?.status === 'ready' && (rec?.segments.length ?? 0) > 0;
@@ -184,29 +225,40 @@ export default function RecordingDetailScreen() {
         </View>
       </View>
 
-      {/* Заголовок */}
-      <View style={styles.head}>
-        <Txt weight="bold" size={fontSize.title} style={{ lineHeight: 26 }}>
-          {rec.title}
-        </Txt>
-        <View style={styles.metaRow}>
-          <Txt size={fontSize.small} color={colors.textSecondary}>
-            {formatDateTime(rec.createdAt)}
+      {/* Заголовок. Схлопывается при скролле текста ниже. */}
+      <Animated.View
+        style={{
+          overflow: 'hidden',
+          opacity: collapseAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }),
+          height:
+            headH > 0
+              ? collapseAnim.interpolate({ inputRange: [0, 1], outputRange: [headH, 0], extrapolate: 'clamp' })
+              : undefined,
+        }}
+      >
+        <View style={styles.head} onLayout={(e) => setHeadH(e.nativeEvent.layout.height)}>
+          <Txt weight="bold" size={fontSize.title} style={{ lineHeight: 26 }}>
+            {rec.title}
           </Txt>
-          <Txt size={fontSize.small} color={colors.textSecondary}>
-            {formatTimecode(rec.durationSec)}
-          </Txt>
-        </View>
-        {/* Отправка в Inbox автоматическая — показываем её след, тост живёт недолго. */}
-        {rec.sentToInbox ? (
-          <View style={styles.sentRow}>
-            <Ionicons name="checkmark-circle" size={13} color={colors.ink} />
-            <Txt size={fontSize.caption} color={colors.ink}>
-              Отправлено в Modus
+          <View style={styles.metaRow}>
+            <Txt size={fontSize.small} color={colors.textSecondary}>
+              {formatDateTime(rec.createdAt)}
+            </Txt>
+            <Txt size={fontSize.small} color={colors.textSecondary}>
+              {formatTimecode(rec.durationSec)}
             </Txt>
           </View>
-        ) : null}
-      </View>
+          {/* Отправка в Inbox автоматическая — показываем её след, тост живёт недолго. */}
+          {rec.sentToInbox ? (
+            <View style={styles.sentRow}>
+              <Ionicons name="checkmark-circle" size={13} color={colors.ink} />
+              <Txt size={fontSize.caption} color={colors.ink}>
+                Отправлено в Modus
+              </Txt>
+            </View>
+          ) : null}
+        </View>
+      </Animated.View>
 
       {generating ? (
         /* Текст из аудио ещё генерируется: вкладки и плеер показывать нечего. */
@@ -283,12 +335,17 @@ export default function RecordingDetailScreen() {
         })}
       </View>
 
-      <AudioPlayer player={player} durationSec={rec.durationSec} />
+      <AudioPlayer player={player} durationSec={rec.durationSec} collapsed={collapsed} />
 
       {tab === 'summary' ? (
         summary ? (
           <Reveal key="summary" delay={20} offset={8} style={styles.tabBody}>
-            <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
+            <ScrollView
+              contentContainerStyle={styles.body}
+              showsVerticalScrollIndicator={false}
+              onScroll={onBodyScroll}
+              scrollEventThrottle={16}
+            >
               <Txt weight="bold" size={fontSize.lg} style={styles.h}>
                 Обзор
               </Txt>
@@ -373,7 +430,12 @@ export default function RecordingDetailScreen() {
         </Reveal>
       ) : (
         <Reveal key="transcript" delay={20} offset={8} style={styles.tabBody}>
-          <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
+          <ScrollView
+              contentContainerStyle={styles.body}
+              showsVerticalScrollIndicator={false}
+              onScroll={onBodyScroll}
+              scrollEventThrottle={16}
+            >
             {rec.segments.map((seg, i) => (
                 <Pressable
                   key={seg.id}

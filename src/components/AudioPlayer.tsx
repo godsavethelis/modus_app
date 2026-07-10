@@ -3,7 +3,7 @@
  * Дорожку можно свернуть — остаётся компактная строка с контролами.
  * TODO(recorder): подключить expo-audio; интерфейс `player` не меняется.
  */
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Txt } from './ui/Txt';
@@ -33,13 +33,20 @@ interface PlayerLike {
 interface Props {
   player: PlayerLike;
   durationSec: number;
+  /** Внешнее сворачивание дорожки — например, при скролле текста под плеером. */
+  collapsed?: boolean;
 }
 
-export function AudioPlayer({ player, durationSec }: Props) {
+export function AudioPlayer({ player, durationSec, collapsed }: Props) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const [open, setOpen] = useState(true);
   const [trackW, setTrackW] = useState(0);
+
+  // Скролл управляет дорожкой снаружи; вручную её по-прежнему можно раскрыть.
+  useEffect(() => {
+    if (collapsed !== undefined) setOpen(!collapsed);
+  }, [collapsed]);
 
   return (
     <View style={styles.wrap}>
