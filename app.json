@@ -1,0 +1,40 @@
+{
+  "expo": {
+    "name": "Modus",
+    "slug": "modus-mobile",
+    "scheme": "modus",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "backgroundColor": "#F3F2EF",
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.modus.mobile"
+    },
+    "android": {
+      "package": "com.modus.mobile",
+      "adaptiveIcon": {
+        "backgroundColor": "#F3F2EF"
+      }
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Modus использует микрофон, чтобы записывать аудио."
+        }
+      ],
+      "expo-splash-screen"
+    ],
+    "experiments": {
+      "typedRoutes": false
+    }
+  }
+}

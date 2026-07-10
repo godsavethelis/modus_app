@@ -1,0 +1,25 @@
+node_modules/
+.expo/
+dist/
+web-build/
+*.log
+
+# macOS
+.DS_Store
+
+# Native
+ios/
+android/
+
+# Env
+.env*.local
+.env
+
+# Внутренняя спека и мудборд — не для публичной репы
+docs/
+
+# Локальные настройки агента
+.claude/settings.local.json
+
+# Metro
+.metro-health-check*
