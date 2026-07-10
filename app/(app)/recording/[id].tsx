@@ -200,8 +200,8 @@ export default function RecordingDetailScreen() {
         {/* Отправка в Inbox автоматическая — показываем её след, тост живёт недолго. */}
         {rec.sentToInbox ? (
           <View style={styles.sentRow}>
-            <Ionicons name="checkmark-circle" size={13} color={colors.textSecondary} />
-            <Txt size={fontSize.caption} color={colors.textSecondary}>
+            <Ionicons name="checkmark-circle" size={13} color={colors.ink} />
+            <Txt size={fontSize.caption} color={colors.ink}>
               Отправлено в Modus
             </Txt>
           </View>

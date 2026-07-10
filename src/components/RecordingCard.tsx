@@ -2,7 +2,6 @@ import { useMemo } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { ProgressBar } from './ProgressBar';
-import { StatusBadge } from './StatusBadge';
 import { Txt } from './ui/Txt';
 import { useProcessingStatus, useRetryProcessing } from '@/hooks/useRecordings';
 import { formatDateTime, formatDuration } from '@/lib/format';
@@ -44,9 +43,13 @@ export function RecordingCard({ recording, onPress }: Props) {
         <Txt weight="semibold" size={13} numberOfLines={2} style={{ lineHeight: 18, flex: 1 }}>
           {recording.title}
         </Txt>
-        {/* Бейдж только там, где он несёт смысл: «отправлено» и «ошибка». */}
-        {recording.sentToInbox || stage === 'failed' ? (
-          <StatusBadge status={stage} sentToInbox={recording.sentToInbox} />
+        {/* Отправка в Inbox автоматическая — бейджем её не дублируем, остаётся только «ошибка». */}
+        {stage === 'failed' ? (
+          <View style={styles.errorPill}>
+            <Txt weight="semibold" size={9.5} color={colors.dangerText} style={{ letterSpacing: 0.5 }}>
+              ОШИБКА
+            </Txt>
+          </View>
         ) : null}
         {/* Спека: карточка failed — кнопка retry. Запускает обработку заново. */}
         {stage === 'failed' ? (
@@ -95,6 +98,12 @@ const makeStyles = (c: Palette) =>
     },
     pressed: { opacity: 0.9, transform: [{ scale: 0.985 }] },
     titleRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm },
+    errorPill: {
+      backgroundColor: c.dangerBg,
+      borderRadius: radius.pill,
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+    },
     retryBtn: {
       width: 26,
       height: 26,
