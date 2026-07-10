@@ -161,10 +161,12 @@ const wideShort: RecordingDetail = {
   },
 };
 
+// Упавшие записи прячем вглубь списка (старые даты): на первом экране
+// демо они не должны бросаться в глаза, но по скроллу — находимы.
 const failedNote: RecordingDetail = {
   id: 'r_5',
   title: 'Заметка на ходу',
-  createdAt: '2025-07-01T01:47:00.000Z',
+  createdAt: '2025-06-07T06:12:00.000Z',
   durationSec: 47,
   status: 'failed',
   sentToInbox: false,
@@ -203,7 +205,8 @@ const EXTRA_TITLES = [
 ];
 
 const extraRecordings: RecordingDetail[] = EXTRA_TITLES.map((title, i) => {
-  const status: ProcessingStatus = i % 11 === 0 ? 'failed' : 'ready';
+  // Ошибки — только на глубоких позициях, чтобы не висели на первом экране.
+  const status: ProcessingStatus = i % 11 === 10 ? 'failed' : 'ready';
   const date = new Date(2025, 5, Math.max(1, 25 - i), 9 + (i % 8), (i * 7) % 60);
   const isReady = status === 'ready';
   // Транскрипт и саммари появляются только вместе — после «Сгенерировать».
