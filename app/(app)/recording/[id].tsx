@@ -65,7 +65,7 @@ export default function RecordingDetailScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
-  const [tab, setTab] = useState<Tab>('summary');
+  const [tab, setTab] = useState<Tab>('transcript');
   /** Спикер, которого переименовываем в попапе (null — попап закрыт). */
   const [speakerEdit, setSpeakerEdit] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
