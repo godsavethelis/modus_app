@@ -5,7 +5,7 @@
  */
 import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { Txt } from './ui/Txt';
 import { formatTimecode } from '@/lib/format';
 import { trackAmplitude } from '@/lib/pulseWave';
@@ -83,7 +83,16 @@ export function AudioPlayer({ player, durationSec }: Props) {
         </Pressable>
       ) : null}
 
+      {/* Классическая раскладка, как в Apple Music: перемотка по бокам, play в центре. */}
       <View style={styles.controls}>
+        <Pressable
+          onPress={() => player.seekBy(-SKIP_SEC)}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel="Назад 15 секунд"
+        >
+          <Ionicons name="play-back" size={24} color={colors.ink} />
+        </Pressable>
         <Pressable
           onPress={player.toggle}
           style={styles.play}
@@ -93,20 +102,12 @@ export function AudioPlayer({ player, durationSec }: Props) {
           <Ionicons name={player.playing ? 'pause' : 'play'} size={19} color={colors.ink} />
         </Pressable>
         <Pressable
-          onPress={() => player.seekBy(-SKIP_SEC)}
-          hitSlop={8}
-          accessibilityRole="button"
-          accessibilityLabel="Назад 15 секунд"
-        >
-          <MaterialCommunityIcons name="rewind-15" size={26} color={colors.ink} />
-        </Pressable>
-        <Pressable
           onPress={() => player.seekBy(SKIP_SEC)}
           hitSlop={8}
           accessibilityRole="button"
           accessibilityLabel="Вперёд 15 секунд"
         >
-          <MaterialCommunityIcons name="fast-forward-15" size={26} color={colors.ink} />
+          <Ionicons name="play-forward" size={24} color={colors.ink} />
         </Pressable>
       </View>
     </View>
@@ -136,6 +137,7 @@ const makeStyles = (colors: Palette) =>
     controls: {
       flexDirection: 'row',
       alignItems: 'center',
+      justifyContent: 'center',
       gap: spacing.xxxl,
       marginTop: spacing.lg,
       paddingBottom: spacing.xs,

@@ -296,9 +296,11 @@ export default function RecordingDetailScreen() {
                 {summary.theme}
               </Txt>
 
-              <Txt weight="bold" size={fontSize.lg} style={styles.h}>
-                Заметки
-              </Txt>
+              {(summary.notes?.length ?? 0) > 0 ? (
+                <Txt weight="bold" size={fontSize.lg} style={styles.h}>
+                  Заметки
+                </Txt>
+              ) : null}
               {(summary.notes ?? []).map((note, i) => (
                 <View key={i} style={styles.note}>
                   <View style={styles.noteHead}>
