@@ -7,7 +7,7 @@ import { Screen } from '@/components/ui/Screen';
 import { Txt } from '@/components/ui/Txt';
 import { PulseBars } from '@/components/PulseBars';
 import { formatTimecode } from '@/lib/format';
-import { recordingsApi, transcribeApi } from '@/services/api';
+import { recordingsApi } from '@/services/api';
 import { MOCK_MIC_DENIED } from '@/services/mocks/data';
 import { fontSize, radius, spacing, type Palette } from '@/theme';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -48,13 +48,11 @@ export default function RecordScreen() {
     setStopping(true);
     // TODO(recorder): остановить expo-audio и получить localUri файла (.m4a).
     // Загрузка идёт в фоне: сразу возвращаемся на главный, там карточка
-    // новой записи показывает прогресс полоской.
+    // новой записи показывает прогресс полоской. Расшифровку и саммари
+    // пользователь запускает сам — кнопкой «Сгенерировать» внутри записи.
     recordingsApi
       .uploadRecording('mock://audio/new.m4a', seconds)
-      .then(async (created) => {
-        queryClient.invalidateQueries({ queryKey: ['recordings'] });
-        await transcribeApi.startTranscription(created.id);
-      })
+      .then(() => queryClient.invalidateQueries({ queryKey: ['recordings'] }))
       .catch(() => {});
     router.replace('/(app)');
   }

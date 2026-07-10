@@ -105,11 +105,11 @@ const presentation: RecordingDetail = {
   title: '03-29 Презентация: Интерактивные форматы и рефлексия',
   createdAt: '2025-03-29T10:12:00.000Z',
   durationSec: 87 * 60,
-  status: 'transcribing',
-  progress: 0.48,
+  // Аудио загружено, но ничего не сгенерировано — видно кнопку «Сгенерировать».
+  status: 'ready',
   sentToInbox: false,
   audioUrl: 'mock://audio/r_3.m4a',
-  speakers: [{ id: 's1', label: 'Спикер 1' }],
+  speakers: [],
   segments: [],
 };
 
@@ -174,31 +174,33 @@ const EXTRA_TITLES = [
 ];
 
 const extraRecordings: RecordingDetail[] = EXTRA_TITLES.map((title, i) => {
-  const status: ProcessingStatus = i % 11 === 0 ? 'failed' : i % 7 === 0 ? 'transcribing' : 'ready';
+  const status: ProcessingStatus = i % 11 === 0 ? 'failed' : 'ready';
   const date = new Date(2025, 5, Math.max(1, 25 - i), 9 + (i % 8), (i * 7) % 60);
   const isReady = status === 'ready';
-  // Часть готовых записей — без саммари: на них видно кнопку «Сгенерировать».
-  const hasSummary = isReady && i % 3 !== 1;
+  // Транскрипт и саммари появляются только вместе — после «Сгенерировать».
+  // Часть записей оставляем без них: на таких видно кнопку.
+  const generated = isReady && i % 3 !== 1;
   return {
     id: `r_e${i}`,
     title,
     createdAt: date.toISOString(),
     durationSec: (5 + ((i * 13) % 105)) * 60,
     status,
-    progress: status === 'transcribing' ? 0.6 : undefined,
-    sentToInbox: isReady && i % 5 === 0,
+    sentToInbox: generated && i % 5 === 0,
     audioUrl: `mock://audio/r_e${i}.m4a`,
-    speakers: [
-      { id: 's1', label: 'Спикер 1' },
-      { id: 's2', label: 'Спикер 2' },
-    ],
-    segments: isReady
+    speakers: generated
+      ? [
+          { id: 's1', label: 'Спикер 1' },
+          { id: 's2', label: 'Спикер 2' },
+        ]
+      : [],
+    segments: generated
       ? [
           { id: 'g1', speakerId: 's1', start: 3, end: 15, text: 'Короткая заметка по теме встречи.' },
           { id: 'g2', speakerId: 's2', start: 16, end: 30, text: 'Договорились о следующих шагах.' },
         ]
       : [],
-    summary: hasSummary
+    summary: generated
       ? { theme: `Обсуждение: ${title.toLowerCase()}.`, keywords: ['встреча'], nextSteps: ['Зафиксировать договорённости'] }
       : undefined,
   };

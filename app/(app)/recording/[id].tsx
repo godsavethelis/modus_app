@@ -15,7 +15,7 @@ import {
   useRetryProcessing,
   useSendToInbox,
   useDeleteRecording,
-  useGenerateSummary,
+  useStartGeneration,
   useRegenerateSummary,
 } from '@/hooks/useRecordings';
 import { useMockPlayer } from '@/hooks/useMockPlayer';
@@ -26,17 +26,19 @@ import type { ProcessingStatus } from '@/types';
 
 type Tab = 'transcript' | 'summary';
 
-/** Стадии, на которых текст из аудио ещё генерируется. */
-const IN_PROGRESS: ProcessingStatus[] = ['uploading', 'transcribing'];
+/** Стадии, на которых запись ещё обрабатывается. */
+const IN_PROGRESS: ProcessingStatus[] = ['uploading', 'transcribing', 'summarizing'];
 
 const STAGE_TITLE: Partial<Record<ProcessingStatus, string>> = {
   uploading: 'Загружаем аудио',
   transcribing: 'Распознаём речь',
+  summarizing: 'Собираем саммари',
 };
 
 const STAGE_TAG: Partial<Record<ProcessingStatus, string>> = {
   uploading: 'ЗАГРУЗКА',
   transcribing: 'РАСШИФРОВКА',
+  summarizing: 'САММАРИ',
 };
 
 const WAVE = Array.from({ length: 44 }, (_, i) => 4 + Math.round(22 * Math.abs(Math.sin(i * 0.6))));
@@ -51,7 +53,7 @@ export default function RecordingDetailScreen() {
   const send = useSendToInbox(id);
   const del = useDeleteRecording();
   const retry = useRetryProcessing(id);
-  const gen = useGenerateSummary(id);
+  const gen = useStartGeneration(id);
   const regen = useRegenerateSummary(id);
   const player = useMockPlayer(rec?.durationSec ?? 0);
   const { colors } = useTheme();
@@ -84,10 +86,42 @@ export default function RecordingDetailScreen() {
   const progress = live?.progress ?? rec.progress ?? 0;
   const generating = IN_PROGRESS.includes(stage);
   const isFailed = stage === 'failed';
-  const isReady = stage === 'ready';
   const alreadySent = rec.sentToInbox || toast;
   const summary = rec.summary;
+  // Транскрипт и саммари появляются вместе — после «Сгенерировать».
+  const generated = rec.segments.length > 0 || !!summary;
   const speakerName = (sid: string) => rec.speakers.find((s) => s.id === sid)?.label ?? 'Спикер';
+
+  /** Пустая вкладка: объяснение + запуск генерации. Одинакова для обеих вкладок. */
+  const generateBlock = (hint: string) => (
+    <View style={styles.genWrap}>
+      <View style={styles.genCenter}>
+        <View style={styles.genIcon}>
+          <Ionicons name="document-text-outline" size={26} color={colors.textMuted} />
+        </View>
+        <Txt weight="bold" size={fontSize.lg} align="center">
+          Готово к генерации
+        </Txt>
+        <Txt size={fontSize.small} color={colors.textSecondary} align="center" style={styles.genHint}>
+          {hint}
+        </Txt>
+      </View>
+      <Pressable
+        onPress={() => gen.mutate()}
+        disabled={gen.isPending}
+        style={[styles.genBtn, gen.isPending && styles.genBtnOff]}
+      >
+        {gen.isPending ? (
+          <ActivityIndicator color={colors.onAccent} size="small" />
+        ) : (
+          <Ionicons name="sparkles" size={16} color={colors.accent} />
+        )}
+        <Txt weight="semibold" size={fontSize.base} color={colors.onAccent}>
+          {gen.isPending ? 'Генерируем…' : 'Сгенерировать'}
+        </Txt>
+      </Pressable>
+    </View>
+  );
 
   function openSpeakerEdit(sid: string) {
     setDraft(speakerName(sid));
@@ -123,11 +157,11 @@ export default function RecordingDetailScreen() {
           <Ionicons name="chevron-back" size={24} color={colors.ink} />
         </Pressable>
         <View style={styles.topRight}>
-          <Pressable onPress={onSend} disabled={!isReady || alreadySent} hitSlop={8}>
+          <Pressable onPress={onSend} disabled={!generated || alreadySent} hitSlop={8}>
             <Ionicons
               name={alreadySent ? 'checkmark-circle' : 'paper-plane-outline'}
               size={21}
-              color={alreadySent ? colors.textSecondary : isReady ? colors.ink : colors.textMuted}
+              color={alreadySent ? colors.textSecondary : generated ? colors.ink : colors.textMuted}
             />
           </Pressable>
           <Pressable onPress={() => setMenuOpen(true)} hitSlop={8}>
@@ -161,8 +195,8 @@ export default function RecordingDetailScreen() {
                 {STAGE_TITLE[stage] ?? 'Обрабатываем'}
               </Txt>
               <Txt size={fontSize.small} color={colors.textSecondary} align="center" style={styles.stateHint}>
-                Распознаём речь и разделяем её по спикерам. Транскрипт появится здесь, а саммари можно будет
-                сгенерировать следом.
+                Распознаём речь, разделяем её по спикерам и собираем саммари. Транскрипт и саммари появятся здесь,
+                когда закончим.
               </Txt>
             </View>
             <View style={styles.stateFooter}>
@@ -277,46 +311,18 @@ export default function RecordingDetailScreen() {
             </ScrollView>
           </Reveal>
         ) : (
-          /* Саммари ещё нет — пользователь запускает генерацию сам. */
           <Reveal key="summary-empty" delay={20} offset={8} style={styles.tabBody}>
-            <View style={styles.genWrap}>
-              <View style={styles.genCenter}>
-                <View style={styles.genIcon}>
-                  <Ionicons name="document-text-outline" size={26} color={colors.textMuted} />
-                </View>
-                <Txt weight="bold" size={fontSize.lg} align="center">
-                  Готово к генерации
-                </Txt>
-                <Txt size={fontSize.small} color={colors.textSecondary} align="center" style={styles.genHint}>
-                  Саммари появится здесь после генерации
-                </Txt>
-              </View>
-              <Pressable
-                onPress={() => gen.mutate()}
-                disabled={gen.isPending}
-                style={[styles.genBtn, gen.isPending && styles.genBtnOff]}
-              >
-                {gen.isPending ? (
-                  <ActivityIndicator color={colors.onAccent} size="small" />
-                ) : (
-                  <Ionicons name="sparkles" size={16} color={colors.accent} />
-                )}
-                <Txt weight="semibold" size={fontSize.base} color={colors.onAccent}>
-                  {gen.isPending ? 'Генерируем…' : 'Сгенерировать'}
-                </Txt>
-              </Pressable>
-            </View>
+            {generateBlock('Саммари появится здесь после генерации')}
           </Reveal>
         )
+      ) : rec.segments.length === 0 ? (
+        <Reveal key="transcript-empty" delay={20} offset={8} style={styles.tabBody}>
+          {generateBlock('Транскрипт появится здесь после генерации')}
+        </Reveal>
       ) : (
         <Reveal key="transcript" delay={20} offset={8} style={styles.tabBody}>
           <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
-            {rec.segments.length === 0 ? (
-              <Txt size={fontSize.body} color={colors.textSecondary}>
-                В этой записи не распознано ни одной реплики.
-              </Txt>
-            ) : (
-              rec.segments.map((seg, i) => (
+            {rec.segments.map((seg, i) => (
                 <Pressable
                   key={seg.id}
                   onPress={() => jumpTo(seg.start)}
@@ -345,8 +351,7 @@ export default function RecordingDetailScreen() {
                     {seg.text}
                   </Txt>
                 </Pressable>
-              ))
-            )}
+            ))}
           </ScrollView>
         </Reveal>
       )}

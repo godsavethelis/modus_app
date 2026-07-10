@@ -100,12 +100,18 @@ export function useRetryProcessing(id: string) {
   });
 }
 
-/** Первая генерация саммари — по кнопке на вкладке «Саммари». */
-export function useGenerateSummary(id: string) {
+/**
+ * Кнопка «Сгенерировать»: запускает расшифровку, следом собирается саммари.
+ * Опрос статуса начинаем с чистого листа, иначе он останется на ready.
+ */
+export function useStartGeneration(id: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: () => transcribeApi.generateSummary(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: keys.detail(id) }),
+    mutationFn: () => transcribeApi.startTranscription(id),
+    onSuccess: () => {
+      qc.removeQueries({ queryKey: ['transcribe-status', id] });
+      qc.invalidateQueries({ queryKey: keys.list });
+    },
   });
 }
 

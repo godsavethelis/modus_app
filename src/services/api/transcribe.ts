@@ -4,31 +4,43 @@
  *   GET  /api/modus/transcribe/status
  *   POST /api/modus/summarize/regenerate
  */
-import type { ProcessingStatus, RecordingDetail, Summary } from '@/types';
+import type { ProcessingStatus, Summary } from '@/types';
 import { makeMockSummary, mockRecordings, newRecordingSegments, newRecordingSpeakers } from '../mocks/data';
 import { delay } from './client';
 
-/**
- * Последовательность стадий обработки для мок-«прогресса».
- * Саммари не входит в конвейер: его запускает пользователь кнопкой
- * «Сгенерировать» на экране записи.
- */
-const STAGES: ProcessingStatus[] = ['uploading', 'transcribing', 'ready'];
+/** Прогресс стадии — для полоски в карточке и на экране генерации. */
+const PROGRESS: Record<ProcessingStatus, number> = {
+  uploading: 0.15,
+  transcribing: 0.45,
+  summarizing: 0.8,
+  ready: 1,
+  failed: 0,
+};
 
+/**
+ * Следующая стадия конвейера. Загрузка заканчивается на ready: ни транскрипта,
+ * ни саммари сама она не делает. Расшифровку и саммари запускает пользователь
+ * кнопкой «Сгенерировать» — тогда идёт transcribing → summarizing → ready.
+ */
+const NEXT: Partial<Record<ProcessingStatus, ProcessingStatus>> = {
+  uploading: 'ready',
+  transcribing: 'summarizing',
+  summarizing: 'ready',
+};
+
+/** Пользователь нажал «Сгенерировать»: расшифровываем аудио, следом собираем саммари. */
 export async function startTranscription(id: string): Promise<void> {
   await delay(300);
   // TODO(backend): POST /api/modus/transcribe/start
   const rec = mockRecordings.find((r) => r.id === id);
-  if (rec) {
-    rec.status = 'uploading';
-    rec.progress = 0;
-  }
+  if (!rec) throw new Error(`Запись ${id} не найдена`);
+  rec.status = 'transcribing';
+  rec.progress = PROGRESS.transcribing;
 }
 
 /**
- * Статус обработки. В прототипе продвигает стадию на каждый опрос,
- * имитируя реальный pipeline uploading → transcribing → ready.
- * Дойдя до ready, наполняет пустую запись распознанным транскриптом.
+ * Статус обработки. В прототипе продвигает стадию на каждый опрос и по пути
+ * наполняет запись: транскрипт готов к стадии summarizing, саммари — к ready.
  */
 export async function getStatus(id: string): Promise<{ status: ProcessingStatus; progress: number }> {
   await delay(700);
@@ -36,29 +48,21 @@ export async function getStatus(id: string): Promise<{ status: ProcessingStatus;
   const rec = mockRecordings.find((r) => r.id === id);
   if (!rec) throw new Error(`Запись ${id} не найдена`);
 
-  const currentIndex = STAGES.indexOf(rec.status);
-  if (currentIndex >= 0 && currentIndex < STAGES.length - 1) {
-    rec.status = STAGES[currentIndex + 1];
-    rec.progress = (currentIndex + 1) / (STAGES.length - 1);
-  }
-  if (rec.status === 'ready' && rec.segments.length === 0) {
-    rec.speakers = newRecordingSpeakers.map((s) => ({ ...s }));
-    rec.segments = newRecordingSegments.map((s) => ({ ...s }));
+  const next = NEXT[rec.status];
+  if (next) {
+    rec.status = next;
+    rec.progress = PROGRESS[next];
+
+    if (next === 'summarizing' && rec.segments.length === 0) {
+      rec.speakers = newRecordingSpeakers.map((s) => ({ ...s }));
+      rec.segments = newRecordingSegments.map((s) => ({ ...s }));
+    }
+    // Из uploading в ready приходим без транскрипта — саммари тогда не делаем.
+    if (next === 'ready' && rec.segments.length > 0 && !rec.summary) {
+      rec.summary = makeMockSummary();
+    }
   }
   return { status: rec.status, progress: rec.progress ?? 1 };
-}
-
-/**
- * Генерация саммари по транскрипту — запускается пользователем.
- * Первый вызов создаёт саммари, повторный отдаёт уже готовое.
- */
-export async function generateSummary(id: string): Promise<Summary> {
-  await delay(1800);
-  // TODO(backend): POST /api/modus/summarize/start
-  const rec = mockRecordings.find((r) => r.id === id);
-  if (!rec) throw new Error(`Запись ${id} не найдена`);
-  if (!rec.summary) rec.summary = makeMockSummary();
-  return rec.summary;
 }
 
 export async function regenerateSummary(id: string): Promise<Summary> {
@@ -69,12 +73,12 @@ export async function regenerateSummary(id: string): Promise<Summary> {
   return rec.summary;
 }
 
-/** Ретрай упавшей обработки. */
+/** Ретрай упавшей обработки — запускает расшифровку заново. */
 export async function retryProcessing(id: string): Promise<void> {
   await delay(300);
+  // TODO(backend): POST /api/modus/transcribe/start
   const rec = mockRecordings.find((r) => r.id === id);
-  if (rec) {
-    rec.status = 'uploading';
-    rec.progress = 0;
-  }
+  if (!rec) throw new Error(`Запись ${id} не найдена`);
+  rec.status = 'transcribing';
+  rec.progress = PROGRESS.transcribing;
 }
