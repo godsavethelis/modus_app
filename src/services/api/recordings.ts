@@ -16,15 +16,6 @@ function toListItem(r: RecordingDetail): Recording {
   return rest;
 }
 
-export async function listRecordings(): Promise<Recording[]> {
-  await delay();
-  maybeFail(0.3);
-  // TODO(backend): GET /api/mobile/recording/list
-  return mockRecordings
-    .map(toListItem)
-    .sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt));
-}
-
 /**
  * Постраничная выдача записей (для бесконечного скролла).
  * TODO(backend): GET /api/mobile/recording/list?page=&pageSize=
@@ -34,6 +25,7 @@ export async function listRecordingsPage(
   pageSize = 15,
 ): Promise<{ items: Recording[]; nextPage: number | null }> {
   await delay(page === 0 ? 600 : 1600);
+  maybeFail(0.3);
   const all = mockRecordings
     .map(toListItem)
     .sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt));

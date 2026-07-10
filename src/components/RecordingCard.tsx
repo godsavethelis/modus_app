@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { ProgressBar } from './ProgressBar';
+import { StatusBadge } from './StatusBadge';
 import { Txt } from './ui/Txt';
 import { useProcessingStatus } from '@/hooks/useRecordings';
 import { formatDateTime, formatDuration } from '@/lib/format';
@@ -37,9 +38,15 @@ export function RecordingCard({ recording, onPress }: Props) {
 
   return (
     <Pressable onPress={onPress} style={({ pressed }) => [styles.card, pressed && styles.pressed]}>
-      <Txt weight="semibold" size={13} numberOfLines={2} style={{ lineHeight: 18 }}>
-        {recording.title}
-      </Txt>
+      <View style={styles.titleRow}>
+        <Txt weight="semibold" size={13} numberOfLines={2} style={{ lineHeight: 18, flex: 1 }}>
+          {recording.title}
+        </Txt>
+        {/* Бейдж только там, где он несёт смысл: «отправлено» и «ошибка». */}
+        {recording.sentToInbox || stage === 'failed' ? (
+          <StatusBadge status={stage} sentToInbox={recording.sentToInbox} />
+        ) : null}
+      </View>
       {showLoader ? (
         <View style={styles.procWrap}>
           <Txt weight="semibold" size={9.5} color={stage === 'failed' ? colors.dangerText : colors.accent} style={{ letterSpacing: 1.2 }}>
@@ -68,5 +75,6 @@ const makeStyles = (c: Palette) =>
       ...shadow.card,
     },
     pressed: { opacity: 0.9, transform: [{ scale: 0.985 }] },
+    titleRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm },
     procWrap: { marginTop: spacing.sm, gap: 7 },
   });

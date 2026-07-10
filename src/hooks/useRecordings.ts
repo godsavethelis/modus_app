@@ -8,13 +8,6 @@ const keys = {
   detail: (id: string) => ['recordings', id] as const,
 };
 
-export function useRecordings() {
-  return useQuery({
-    queryKey: keys.list,
-    queryFn: recordingsApi.listRecordings,
-  });
-}
-
 /** Бесконечная подгрузка записей по страницам (по 15). */
 export function useInfiniteRecordings(pageSize = 15) {
   return useInfiniteQuery({

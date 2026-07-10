@@ -51,6 +51,23 @@ export default function HomeScreen() {
     </View>
   );
 
+  // Спека, edge case «пустой список»: объяснение + CTA на первую запись.
+  const empty = (
+    <View style={styles.empty}>
+      <Txt weight="bold" size={fontSize.lg} align="center">
+        Пока нет записей
+      </Txt>
+      <Txt size={fontSize.small} color={colors.textSecondary} align="center" style={styles.emptyHint}>
+        Запиши встречу или лекцию — расшифровка и саммари появятся здесь.
+      </Txt>
+      <Pressable onPress={() => router.push('/record')} style={styles.emptyBtn}>
+        <Txt weight="semibold" size={fontSize.small} color={colors.onAccent}>
+          Сделать первую запись
+        </Txt>
+      </Pressable>
+    </View>
+  );
+
   const footer = isFetchingNextPage ? (
     <View style={styles.footerLoader}>
       <ActivityIndicator color={colors.accent} />
@@ -104,6 +121,7 @@ export default function HomeScreen() {
             </View>
           )}
           ListHeaderComponent={header}
+          ListEmptyComponent={empty}
           ListFooterComponent={footer}
           onEndReached={() => {
             if (hasNextPage && !isFetchingNextPage) fetchNextPage();
@@ -176,6 +194,15 @@ const makeStyles = (colors: Palette) =>
     },
     sheetHeader: { paddingHorizontal: spacing.xl, paddingBottom: spacing.md },
     cardWrap: { paddingHorizontal: spacing.lg, paddingBottom: 12 },
+    empty: { alignItems: 'center', paddingHorizontal: spacing.xxl, paddingTop: spacing.lg, gap: spacing.sm },
+    emptyHint: { lineHeight: 18, maxWidth: 260 },
+    emptyBtn: {
+      backgroundColor: colors.accent,
+      paddingHorizontal: spacing.xl,
+      paddingVertical: spacing.md,
+      borderRadius: radius.pill,
+      marginTop: spacing.sm,
+    },
     footerLoader: { alignItems: 'center', justifyContent: 'center', gap: spacing.sm, paddingVertical: spacing.xxl },
     footerEnd: { alignItems: 'center', paddingVertical: spacing.xxl },
     center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.md, paddingHorizontal: spacing.xxl },

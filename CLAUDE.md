@@ -1,6 +1,6 @@
 # Modus Mobile — контекст для агента
 
-Мобильный диктофон-компаньон к веб-приложению Modus: запись аудио → расшифровка со спикерами и саммари → отправка в Inbox. Спека: `docs/mobile-app-spec.docx.md`, дизайн-гайд: `docs/design/DESIGN.md`.
+Мобильный диктофон-компаньон к веб-приложению Modus: запись аудио → расшифровка со спикерами и саммари → отправка в Inbox. Спека и дизайн-гайд лежат **локально** в `docs/` (`mobile-app-spec.docx.md`, `design/DESIGN.md`) — папка в `.gitignore` и в публичную репу не попадает; если работаешь с клона без `docs/`, запроси файлы у владельца.
 
 **Задача:** фронтенд-прототип на хардкод-данных (моки). Бэкенд подключается позже заменой одного слоя — `src/services/api/`. UI на русском.
 
@@ -17,7 +17,7 @@ npx expo start        # затем клавиша w — откроется в б
 Гоняем и проверяем через preview-инструменты (`.claude/launch.json` → сервер `modus-web`, порт 8081).
 
 ## Архитектура
-- `app/` — экраны (expo-router): `(auth)/login`, `(app)/index` (главный, кнопка REC + список), `(app)/record`, `(app)/processing/[id]`, `(app)/recording/[id]` (плеер + Транскрипт/Саммари).
+- `app/` — экраны (expo-router): `(auth)/login`, `(app)/index` (главный, кнопка REC + список), `(app)/record`, `(app)/profile`, `(app)/recording/[id]` (плеер + Транскрипт/Саммари; обработка показывается состоянием внутри этого экрана и карточек).
 - `src/services/api/` — **единственный слой для бэкенда** (моки + `TODO(backend)`); `src/services/mocks/data.ts` — весь хардкод.
 - `src/theme/tokens.ts` — дизайн-токены. `src/components/` — UI. `src/hooks/` — React Query + `useMockPlayer`.
 
