@@ -1,9 +1,10 @@
 import { useMemo } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { ProgressBar } from './ProgressBar';
 import { StatusBadge } from './StatusBadge';
 import { Txt } from './ui/Txt';
-import { useProcessingStatus } from '@/hooks/useRecordings';
+import { useProcessingStatus, useRetryProcessing } from '@/hooks/useRecordings';
 import { formatDateTime, formatDuration } from '@/lib/format';
 import { radius, shadow, spacing, type Palette } from '@/theme';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -31,6 +32,7 @@ export function RecordingCard({ recording, onPress }: Props) {
   // и показывает полоску прогресса вместо даты.
   const isProcessing = PROCESSING.includes(recording.status);
   const { data: live } = useProcessingStatus(recording.id, isProcessing);
+  const retry = useRetryProcessing(recording.id);
   const stage = live?.status ?? recording.status;
   const progress = live?.progress ?? recording.progress ?? 0;
 
@@ -45,6 +47,23 @@ export function RecordingCard({ recording, onPress }: Props) {
         {/* Бейдж только там, где он несёт смысл: «отправлено» и «ошибка». */}
         {recording.sentToInbox || stage === 'failed' ? (
           <StatusBadge status={stage} sentToInbox={recording.sentToInbox} />
+        ) : null}
+        {/* Спека: карточка failed — кнопка retry. Запускает обработку заново. */}
+        {stage === 'failed' ? (
+          <Pressable
+            onPress={() => retry.mutate()}
+            disabled={retry.isPending}
+            hitSlop={8}
+            style={styles.retryBtn}
+            accessibilityRole="button"
+            accessibilityLabel="Повторить обработку"
+          >
+            {retry.isPending ? (
+              <ActivityIndicator size="small" color={colors.dangerText} style={{ transform: [{ scale: 0.6 }] }} />
+            ) : (
+              <Ionicons name="refresh" size={14} color={colors.dangerText} />
+            )}
+          </Pressable>
         ) : null}
       </View>
       {showLoader ? (
@@ -76,5 +95,14 @@ const makeStyles = (c: Palette) =>
     },
     pressed: { opacity: 0.9, transform: [{ scale: 0.985 }] },
     titleRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm },
+    retryBtn: {
+      width: 26,
+      height: 26,
+      borderRadius: 13,
+      borderWidth: 1,
+      borderColor: c.hairline,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
     procWrap: { marginTop: spacing.sm, gap: 7 },
   });

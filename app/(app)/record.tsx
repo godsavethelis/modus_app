@@ -50,6 +50,8 @@ export default function RecordScreen() {
     // Загрузка идёт в фоне: сразу возвращаемся на главный, там карточка
     // новой записи показывает прогресс полоской. Расшифровку и саммари
     // пользователь запускает сам — кнопкой «Сгенерировать» внутри записи.
+    // Сбой загрузки виден там же: карточка падает в «ошибку» с кнопкой
+    // retry (мок: флаг MOCK_UPLOAD_FAILS в mocks/data.ts).
     recordingsApi
       .uploadRecording('mock://audio/new.m4a', seconds)
       .then(() => queryClient.invalidateQueries({ queryKey: ['recordings'] }))

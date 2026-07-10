@@ -37,6 +37,8 @@ export interface SummaryNote {
 export interface Summary {
   theme: string;
   keywords: string[];
+  /** Принятые решения. */
+  decisions?: string[];
   nextSteps: string[];
   conclusion?: string;
   /** Развёрнутые заметки встречи (нумерованные с под-пунктами). */

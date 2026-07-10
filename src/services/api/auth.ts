@@ -4,12 +4,18 @@
  *   POST /api/auth/refresh
  */
 import type { AuthTokens, LoginRequest, LoginResponse } from '@/types';
-import { MOCK_PASSWORD, mockUser } from '../mocks/data';
+import { MOCK_AUTH_FAILURE, MOCK_PASSWORD, mockUser } from '../mocks/data';
 import { ApiError, delay } from './client';
 
 export async function login({ email, password }: LoginRequest): Promise<LoginResponse> {
   await delay();
   // TODO(backend): POST /api/auth/login
+  if (MOCK_AUTH_FAILURE === 'network') {
+    throw new ApiError('Нет соединения. Проверь интернет и попробуй ещё раз', 'network');
+  }
+  if (MOCK_AUTH_FAILURE === 'server') {
+    throw new ApiError('Сервер недоступен. Попробуй чуть позже', 'server');
+  }
   if (!email.includes('@')) {
     throw new ApiError('Проверь email', 'validation');
   }

@@ -5,7 +5,14 @@
  *   POST /api/modus/summarize/regenerate
  */
 import type { ProcessingStatus, Summary } from '@/types';
-import { makeMockSummary, mockRecordings, newRecordingSegments, newRecordingSpeakers } from '../mocks/data';
+import {
+  MOCK_UPLOAD_FAILS,
+  makeMockSummary,
+  mockRecordings,
+  newRecordingSegments,
+  newRecordingSpeakers,
+  regenerateMockSummary,
+} from '../mocks/data';
 import { delay } from './client';
 
 /** Прогресс стадии — для полоски в карточке и на экране генерации. */
@@ -48,6 +55,13 @@ export async function getStatus(id: string): Promise<{ status: ProcessingStatus;
   const rec = mockRecordings.find((r) => r.id === id);
   if (!rec) throw new Error(`Запись ${id} не найдена`);
 
+  // Мок сбоя сети: файл «не доехал», запись падает — на карточке появится retry.
+  if (rec.status === 'uploading' && MOCK_UPLOAD_FAILS) {
+    rec.status = 'failed';
+    rec.progress = 0;
+    return { status: rec.status, progress: 0 };
+  }
+
   const next = NEXT[rec.status];
   if (next) {
     rec.status = next;
@@ -73,6 +87,7 @@ export async function regenerateSummary(id: string): Promise<Summary> {
   // TODO(backend): POST /api/modus/summarize/regenerate
   const rec = mockRecordings.find((r) => r.id === id);
   if (!rec?.summary) throw new Error('Нет саммари для перегенерации');
+  rec.summary = regenerateMockSummary(rec.summary);
   return rec.summary;
 }
 

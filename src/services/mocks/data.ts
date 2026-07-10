@@ -21,6 +21,19 @@ export const MOCK_PASSWORD = '1234';
  */
 export const MOCK_MIC_DENIED = false;
 
+/**
+ * Мок сбоя сети при загрузке аудио. Поставь true — новая запись упадёт
+ * в «ошибку» на стадии загрузки, на карточке появится retry.
+ * TODO(backend): реальную ошибку вернёт multipart-upload.
+ */
+export const MOCK_UPLOAD_FAILS = false;
+
+/**
+ * Мок ошибок входа. Поставь 'network' или 'server', чтобы увидеть,
+ * как логин показывает сбой сети или сервера (спека: понятные ошибки).
+ */
+export const MOCK_AUTH_FAILURE: 'network' | 'server' | null = null;
+
 const lectureDetail: RecordingDetail = {
   id: 'r_1',
   title: '10-03 Лекция: Триумфальная площадь, памятник Маяковскому и культурная память Москвы',
@@ -95,6 +108,10 @@ const weeklyMeeting: RecordingDetail = {
   summary: {
     theme: 'Еженедельная встреча по продажам, разработке и фандрайзингу.',
     keywords: ['продажи', 'разработка', 'фандрайзинг'],
+    decisions: [
+      'Квартальный фокус продаж — удержание клиентов',
+      'Мобильный диктофон — главный приоритет разработки',
+    ],
     nextSteps: ['Подготовить питч для раунда', 'Закрыть релиз мобильного диктофона'],
     conclusion: 'Команда движется по плану, ключевой риск — сроки мобильного релиза.',
   },
@@ -231,6 +248,10 @@ export function makeMockSummary(): Summary {
   return {
     theme: 'Команда зафиксировала цели спринта и распределила задачи по владельцам: сначала загрузка аудио, затем статусы обработки.',
     keywords: ['спринт', 'загрузка аудио', 'статусы обработки', 'демо'],
+    decisions: [
+      'Загрузка аудио — первый приоритет спринта',
+      'Прототип показываем команде на демо в пятницу',
+    ],
     nextSteps: [
       'Закрыть загрузку аудио',
       'Подключить статусы обработки',
@@ -253,6 +274,24 @@ export function makeMockSummary(): Summary {
         ],
       },
     ],
+  };
+}
+
+/**
+ * «Перегенерированное» саммари: тот же материал с другой расстановкой
+ * акцентов, чтобы на демо было видно, что текст действительно обновился.
+ * TODO(backend): вернёт summarize-job.
+ */
+export function regenerateMockSummary(current: Summary): Summary {
+  const notes =
+    current.notes && current.notes.length > 1
+      ? [...current.notes.slice(1), current.notes[0]]
+      : current.notes;
+  return {
+    ...current,
+    notes,
+    decisions: current.decisions ? [...current.decisions].reverse() : undefined,
+    nextSteps: [...current.nextSteps].reverse(),
   };
 }
 

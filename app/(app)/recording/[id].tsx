@@ -321,6 +321,38 @@ export default function RecordingDetailScreen() {
                   ))}
                 </View>
               ))}
+              {(summary.decisions?.length ?? 0) > 0 ? (
+                <>
+                  <Txt weight="bold" size={fontSize.lg} style={styles.h}>
+                    Решения
+                  </Txt>
+                  {summary.decisions!.map((d, i) => (
+                    <View key={i} style={styles.bullet}>
+                      <Ionicons name="checkmark" size={13} color={colors.accent} style={{ marginTop: 3 }} />
+                      <Txt size={fontSize.small} color={colors.ink} style={{ flex: 1, lineHeight: 19 }}>
+                        {d}
+                      </Txt>
+                    </View>
+                  ))}
+                </>
+              ) : null}
+              {summary.nextSteps.length > 0 ? (
+                <>
+                  <Txt weight="bold" size={fontSize.lg} style={styles.h}>
+                    Дальнейшие шаги
+                  </Txt>
+                  {summary.nextSteps.map((s, i) => (
+                    <View key={i} style={styles.bullet}>
+                      <Txt size={fontSize.small} color={colors.textMuted}>
+                        →
+                      </Txt>
+                      <Txt size={fontSize.small} color={colors.ink} style={{ flex: 1, lineHeight: 19 }}>
+                        {s}
+                      </Txt>
+                    </View>
+                  ))}
+                </>
+              ) : null}
               {summary.conclusion ? (
                 <Txt size={fontSize.small} color={colors.textSecondary} style={styles.concl}>
                   {summary.conclusion}
