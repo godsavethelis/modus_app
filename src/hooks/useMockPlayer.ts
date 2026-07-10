@@ -33,7 +33,17 @@ export function useMockPlayer(durationSec: number) {
     [durationSec],
   );
 
+  /**
+   * Относительная перемотка. Считает от актуальной позиции, поэтому два
+   * быстрых нажатия подряд складываются, а не перетирают друг друга.
+   */
+  const seekBy = useCallback(
+    (deltaSec: number) =>
+      setPositionSec((p) => Math.max(0, Math.min(durationSec, p + deltaSec))),
+    [durationSec],
+  );
+
   const progress = durationSec > 0 ? positionSec / durationSec : 0;
 
-  return { positionSec, playing, progress, toggle, seekTo, play: () => setPlaying(true) };
+  return { positionSec, playing, progress, toggle, seekTo, seekBy, play: () => setPlaying(true) };
 }

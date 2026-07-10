@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { AudioPlayer } from '@/components/AudioPlayer';
 import { DotCloud } from '@/components/DotCloud';
 import { ProgressBar } from '@/components/ProgressBar';
 import { Screen } from '@/components/ui/Screen';
@@ -48,8 +48,6 @@ const EXPORT_DONE: Record<ExportKind, string> = {
   summary: 'Саммари выгружено',
 };
 
-const WAVE = Array.from({ length: 44 }, (_, i) => 4 + Math.round(22 * Math.abs(Math.sin(i * 0.6))));
-
 export default function RecordingDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
@@ -65,14 +63,12 @@ export default function RecordingDetailScreen() {
   const exportFile = useExportRecording(id);
   const player = useMockPlayer(rec?.durationSec ?? 0);
   const { colors } = useTheme();
-  const insets = useSafeAreaInsets();
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
   const [tab, setTab] = useState<Tab>('summary');
   /** Спикер, которого переименовываем в попапе (null — попап закрыт). */
   const [speakerEdit, setSpeakerEdit] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
-  const [waveW, setWaveW] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [renameOpen, setRenameOpen] = useState(false);
@@ -172,7 +168,7 @@ export default function RecordingDetailScreen() {
   }
 
   return (
-    <Screen bottomInset={false}>
+    <Screen>
       {/* Верхняя панель */}
       <View style={styles.topBar}>
         <Pressable onPress={() => router.back()} hitSlop={10}>
@@ -215,7 +211,7 @@ export default function RecordingDetailScreen() {
       {generating ? (
         /* Текст из аудио ещё генерируется: вкладки и плеер показывать нечего. */
         <Reveal key="generating" delay={40} offset={10} style={styles.tabBody}>
-          <View style={[styles.stateWrap, { paddingBottom: insets.bottom + spacing.xxl }]}>
+          <View style={styles.stateWrap}>
             <View style={styles.stateCenter}>
               <DotCloud size={200} count={38} />
               <Txt weight="bold" size={fontSize.title} align="center" style={styles.stateTitle}>
@@ -241,7 +237,7 @@ export default function RecordingDetailScreen() {
         </Reveal>
       ) : isFailed ? (
         <Reveal key="failed" delay={40} offset={10} style={styles.tabBody}>
-          <View style={[styles.stateWrap, { paddingBottom: insets.bottom + spacing.xxl }]}>
+          <View style={styles.stateWrap}>
             <View style={styles.stateCenter}>
               <View style={styles.failIcon}>
                 <Ionicons name="alert-circle-outline" size={32} color={colors.dangerText} />
@@ -286,6 +282,8 @@ export default function RecordingDetailScreen() {
           );
         })}
       </View>
+
+      <AudioPlayer player={player} durationSec={rec.durationSec} />
 
       {tab === 'summary' ? (
         summary ? (
@@ -376,34 +374,6 @@ export default function RecordingDetailScreen() {
         </Reveal>
       )}
 
-      {/* Нижняя панель плеера */}
-      <View style={[styles.playerBar, { paddingBottom: insets.bottom + 12 }]}>
-        <Pressable onPress={player.toggle} style={styles.barPlay}>
-          <Ionicons name={player.playing ? 'pause' : 'play'} size={20} color="#111111" />
-        </Pressable>
-        <Pressable
-          style={styles.barWave}
-          onLayout={(e) => setWaveW(e.nativeEvent.layout.width)}
-          onPress={(e) => {
-            if (waveW > 0) player.seekTo((e.nativeEvent.locationX / waveW) * rec.durationSec);
-          }}
-        >
-          {WAVE.map((h, i) => (
-            <View
-              key={i}
-              style={{
-                width: 2.5,
-                height: h,
-                borderRadius: 2,
-                backgroundColor: i / WAVE.length <= player.progress ? colors.accent : '#5A5A5A',
-              }}
-            />
-          ))}
-        </Pressable>
-        <Txt size={fontSize.caption} color="#B8B8B8">
-          {formatTimecode(player.positionSec)} / {formatTimecode(rec.durationSec)}
-        </Txt>
-      </View>
         </>
       )}
 
@@ -634,27 +604,6 @@ const makeStyles = (colors: Palette) =>
     head: { paddingHorizontal: spacing.xl, paddingTop: spacing.md },
     metaRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginTop: spacing.sm },
     sentRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 6 },
-    playerBar: {
-      position: 'absolute',
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: '#111111',
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.md,
-      paddingHorizontal: spacing.lg,
-      paddingTop: 12,
-    },
-    barPlay: {
-      width: 40,
-      height: 40,
-      borderRadius: 20,
-      backgroundColor: '#FFFFFF',
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    barWave: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 2, height: 26 },
     segment: {
       flexDirection: 'row',
       backgroundColor: colors.chipBg,
@@ -674,7 +623,7 @@ const makeStyles = (colors: Palette) =>
     },
     segItemOn: { backgroundColor: colors.surface },
     tabBody: { flex: 1, minHeight: 0 },
-    body: { paddingHorizontal: spacing.xl, paddingTop: spacing.lg, paddingBottom: 120 },
+    body: { paddingHorizontal: spacing.xl, paddingTop: spacing.lg, paddingBottom: spacing.xxxl },
     h: { marginTop: spacing.lg, marginBottom: spacing.sm },
     para: { lineHeight: 22 },
     note: { marginBottom: spacing.md },
@@ -688,9 +637,8 @@ const makeStyles = (colors: Palette) =>
     segHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 },
     speakerTap: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     segTime: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-    /** Экраны состояний (генерация текста, ошибка): контент по центру, действие внизу.
-        Плеера здесь нет, поэтому нижний отступ добавляется из safe area. */
-    stateWrap: { flex: 1, paddingHorizontal: spacing.xl },
+    /** Экраны состояний (генерация текста, ошибка): контент по центру, действие внизу. */
+    stateWrap: { flex: 1, paddingHorizontal: spacing.xl, paddingBottom: spacing.xxl },
     stateCenter: { flex: 1, alignItems: 'center', justifyContent: 'center' },
     stateTitle: { marginTop: spacing.lg },
     stateHint: { lineHeight: 18, marginTop: spacing.sm, maxWidth: 290 },
@@ -713,8 +661,8 @@ const makeStyles = (colors: Palette) =>
       borderRadius: radius.card,
       paddingVertical: spacing.lg,
     },
-    /** Пустое саммари: текст по центру, кнопка прижата над плеером. */
-    genWrap: { flex: 1, paddingHorizontal: spacing.xl, paddingBottom: 104 },
+    /** Пустая вкладка: текст по центру, кнопка генерации прижата вниз. */
+    genWrap: { flex: 1, paddingHorizontal: spacing.xl, paddingBottom: spacing.xxl },
     genCenter: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.sm },
     genIcon: {
       width: 62,
@@ -737,7 +685,7 @@ const makeStyles = (colors: Palette) =>
       paddingVertical: spacing.lg,
     },
     genBtnOff: { opacity: 0.45 },
-    toastWrap: { position: 'absolute', left: 0, right: 0, bottom: 96, alignItems: 'center' },
+    toastWrap: { position: 'absolute', left: 0, right: 0, bottom: 28, alignItems: 'center' },
     toast: {
       flexDirection: 'row',
       alignItems: 'center',

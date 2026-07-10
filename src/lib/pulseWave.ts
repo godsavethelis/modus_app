@@ -28,6 +28,21 @@ export function speechEnergy(t: number): number {
 }
 
 /**
+ * Статичная дорожка записанного аудио в точке u (0..1): несколько «пачек»
+ * речи, между ними паузы — там линии вырождаются в точки. Детерминированная,
+ * поэтому одна и та же запись всегда выглядит одинаково.
+ */
+export function trackAmplitude(u: number): number {
+  const words = Math.sin(u * Math.PI * 2 * 4.6 - 0.9);
+  const gate = Math.max(0, words);
+  const syllable = 0.4 + 0.6 * Math.abs(Math.sin(u * Math.PI * 2 * 30));
+  const grain = 0.7 + 0.3 * Math.sin(u * 147.3);
+  // Пачки речи разной громкости — иначе дорожка выглядит штампованной.
+  const loudness = 0.5 + 0.5 * Math.sin(u * Math.PI * 2 * 1.3 + 0.7);
+  return Math.max(0.03, Math.pow(gate, 0.7) * syllable * grain * (0.45 + 0.55 * loudness));
+}
+
+/**
  * Рельеф ряда в точке u (0..1): произведение двух бегущих лепестков даёт
  * провалы между «пачками» линий, рябь добавляет мелкую неровность.
  * Форма — только про рельеф; громкость приходит из speechEnergy.
