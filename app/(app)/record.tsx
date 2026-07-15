@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Linking, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
@@ -13,22 +13,14 @@ import { MOCK_MIC_DENIED } from '@/services/mocks/data';
 import { fontSize, radius, spacing, type Palette } from '@/theme';
 import { useTheme } from '@/theme/ThemeProvider';
 
-// Демонстрационный поток слов «распознавания». TODO(backend): заменить на стрим STT.
-const DEMO_WORDS =
-  'давайте зафиксируем цели на спринт и разнесём задачи по владельцам первый блок это загрузка аудио дальше статусы обработки'.split(
-    ' ',
-  );
-
 export default function RecordScreen() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const [seconds, setSeconds] = useState(0);
-  const [wordCount, setWordCount] = useState(0);
   const [paused, setPaused] = useState(false);
   const [stopping, setStopping] = useState(false);
-  const tick = useRef(0);
 
   // TODO(recorder): реальный запрос доступа к микрофону через expo-audio.
   const [micDenied] = useState(MOCK_MIC_DENIED);
@@ -37,10 +29,8 @@ export default function RecordScreen() {
     if (micDenied) return;
     const timer = setInterval(() => {
       if (paused) return;
-      tick.current += 1;
-      if (tick.current % 2 === 0) setSeconds((s) => s + 1);
-      setWordCount((c) => (c < DEMO_WORDS.length ? c + 1 : c));
-    }, 380);
+      setSeconds((s) => s + 1);
+    }, 1000);
     return () => clearInterval(timer);
   }, [paused, micDenied]);
 
@@ -116,18 +106,7 @@ export default function RecordScreen() {
         <PulseBars height={160} paused={paused} />
       </View>
 
-      {/* Живая расшифровка */}
-      <View style={styles.transcript}>
-        <Txt weight="semibold" size={fontSize.micro} color={colors.textMuted} style={styles.transcriptLabel}>
-          РАСШИФРОВКА
-        </Txt>
-        <Txt size={fontSize.body} style={{ lineHeight: 20 }} numberOfLines={3}>
-          {DEMO_WORDS.slice(0, wordCount).join(' ')}
-          <Txt size={fontSize.body} color={colors.accent}>
-            {paused ? '' : ' ▍'}
-          </Txt>
-        </Txt>
-      </View>
+      <View style={styles.spacer} />
 
       {/* Основные контролы: без подписей, центры кружков на одной оси. */}
       <View style={styles.controls}>
@@ -175,8 +154,7 @@ const makeStyles = (colors: Palette) =>
     header: { alignItems: 'center', paddingTop: spacing.lg },
     recTag: { flexDirection: 'row', alignItems: 'center', height: 16 },
     cloud: { alignSelf: 'stretch', marginTop: spacing.xl },
-    transcript: { flex: 1, justifyContent: 'flex-start', paddingHorizontal: spacing.xxl, marginTop: spacing.sm },
-    transcriptLabel: { letterSpacing: 1.5, marginBottom: spacing.sm, textAlign: 'center' },
+    spacer: { flex: 1 },
     controls: {
       flexDirection: 'row',
       alignItems: 'center',

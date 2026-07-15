@@ -104,10 +104,6 @@ export default function LoginScreen() {
             </Txt>
           </Pressable>
         </Reveal>
-
-        <Txt size={fontSize.small} color={colors.textSecondary} align="center" style={{ marginTop: spacing.xs }}>
-          Забыли пароль
-        </Txt>
       </KeyboardAvoidingView>
     </Screen>
   );
