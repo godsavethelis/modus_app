@@ -310,9 +310,60 @@ export function regenerateMockSummary(current: Summary): Summary {
   };
 }
 
+// ---------------------------------------------------------------------------
+// Фото в библиотеку
+
+/** Стабильные стоковые картинки (picsum, seed фиксирует кадр между перезагрузками). */
+function stock(seed: string) {
+  return {
+    photoUrl: `https://picsum.photos/seed/${seed}/900/1200`,
+    thumbUrl: `https://picsum.photos/seed/${seed}/300/300`,
+  };
+}
+
+/**
+ * Мок «галереи телефона» для шторки выбора фото.
+ * TODO(recorder): на устройстве заменить на expo-image-picker / MediaLibrary.
+ */
+export const mockGallery = [
+  'board', 'notes', 'desk', 'window', 'street', 'plant',
+  'book', 'coffee', 'stairs', 'lamp', 'wall',
+].map((seed, i) => ({ id: `g_${i}`, ...stock(`modus-${seed}`) }));
+
+/**
+ * Кадры, которые «снимает» мок-камера: пул отдельный от галереи,
+ * чтобы снимок не совпадал с миниатюрами в шторке.
+ * TODO(recorder): заменить на expo-camera.
+ */
+export const mockCameraShots = ['shot-a', 'shot-b', 'shot-c', 'shot-d'].map((seed) => stock(`modus-${seed}`));
+
+/** Авто-имя фото: «Фото 18 июля, 14:42» — подписи в флоу нет. */
+export function makePhotoTitle(date: Date): string {
+  const day = date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
+  const time = date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+  return `Фото ${day}, ${time}`;
+}
+
+/** Готовое фото в ленте — чтобы карточка и просмотрщик были видны в демо сразу. */
+const demoPhoto: RecordingDetail = {
+  id: 'p_1',
+  title: 'Фото 3 октября, 12:40',
+  createdAt: '2025-10-03T12:40:00.000Z',
+  durationSec: 0,
+  status: 'ready',
+  sentToInbox: true,
+  kind: 'photo',
+  ...stock('modus-demo'),
+  sizeMb: 2.4,
+  audioUrl: '',
+  speakers: [],
+  segments: [],
+};
+
 /** In-memory «база» прототипа. Мутируется мок-API (rename/delete/send). ~30 записей. */
 export const mockRecordings: RecordingDetail[] = [
   lectureDetail,
+  demoPhoto,
   weeklyMeeting,
   presentation,
   wideShort,

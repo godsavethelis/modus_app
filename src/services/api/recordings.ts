@@ -8,7 +8,7 @@
  *   POST   /api/mobile/recording/:id/send-inbox
  */
 import type { ExportKind, Recording, RecordingDetail, RecordingPatch } from '@/types';
-import { mockRecordings } from '../mocks/data';
+import { makePhotoTitle, mockRecordings } from '../mocks/data';
 import { delay, maybeFail } from './client';
 
 function toListItem(r: RecordingDetail): Recording {
@@ -60,6 +60,36 @@ export async function uploadRecording(localUri: string, durationSec: number): Pr
     segments: [],
   };
   mockRecordings.unshift(created);
+  return created;
+}
+
+/**
+ * Отправка фото в библиотеку: каждое становится отдельным артефактом
+ * со стадией uploading → ready (карточка в ленте показывает прогресс).
+ */
+export async function uploadPhotos(
+  photos: { photoUrl: string; thumbUrl: string }[],
+): Promise<RecordingDetail[]> {
+  await delay(700);
+  // TODO(backend): POST /api/mobile/photo/upload (multipart, по файлу на артефакт)
+  const now = Date.now();
+  const created = photos.map((p, i): RecordingDetail => ({
+    id: `p_${now}_${i}`,
+    title: makePhotoTitle(new Date(now)),
+    createdAt: new Date(now - i).toISOString(),
+    durationSec: 0,
+    status: 'uploading',
+    progress: 0,
+    sentToInbox: false,
+    kind: 'photo',
+    photoUrl: p.photoUrl,
+    thumbUrl: p.thumbUrl,
+    sizeMb: Math.round((1.2 + Math.random() * 2.6) * 10) / 10,
+    audioUrl: '',
+    speakers: [],
+    segments: [],
+  }));
+  mockRecordings.unshift(...created);
   return created;
 }
 

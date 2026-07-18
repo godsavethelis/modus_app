@@ -45,6 +45,9 @@ export interface Summary {
   notes?: SummaryNote[];
 }
 
+/** Тип артефакта в ленте: аудиозапись или фото для библиотеки. */
+export type ArtifactKind = 'audio' | 'photo';
+
 /** Запись в списке (без тяжёлого контента). */
 export interface Recording {
   id: string;
@@ -58,6 +61,13 @@ export interface Recording {
   /** Отправлена ли в Inbox веб-приложения Modus. */
   sentToInbox: boolean;
   tags?: string[];
+  /** По умолчанию 'audio' — старые моки поля не заполняют. */
+  kind?: ArtifactKind;
+  /** Только для kind='photo': оригинал и квадратная миниатюра. */
+  photoUrl?: string;
+  thumbUrl?: string;
+  /** Размер фото в МБ (мок; на бэке придёт из метаданных файла). */
+  sizeMb?: number;
 }
 
 /** Полная запись с плеером, транскриптом и саммари. */

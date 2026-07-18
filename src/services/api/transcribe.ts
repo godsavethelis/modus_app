@@ -71,6 +71,10 @@ export async function getStatus(id: string): Promise<{ status: ProcessingStatus;
       rec.speakers = newRecordingSpeakers.map((s) => ({ ...s }));
       rec.segments = newRecordingSegments.map((s) => ({ ...s }));
     }
+    // Фото после загрузки сразу оказывается в библиотеке — обработки у него нет.
+    if (next === 'ready' && rec.kind === 'photo') {
+      rec.sentToInbox = true;
+    }
     // Из uploading в ready приходим без транскрипта — саммари тогда не делаем.
     if (next === 'ready' && rec.segments.length > 0 && !rec.summary) {
       rec.summary = makeMockSummary();
@@ -91,12 +95,17 @@ export async function regenerateSummary(id: string): Promise<Summary> {
   return rec.summary;
 }
 
-/** Ретрай упавшей обработки — запускает расшифровку заново. */
+/** Ретрай упавшей обработки — запускает расшифровку (или загрузку фото) заново. */
 export async function retryProcessing(id: string): Promise<void> {
   await delay(300);
-  // TODO(backend): POST /api/modus/transcribe/start
+  // TODO(backend): POST /api/modus/transcribe/start (для фото — повторный upload)
   const rec = mockRecordings.find((r) => r.id === id);
   if (!rec) throw new Error(`Запись ${id} не найдена`);
+  if (rec.kind === 'photo') {
+    rec.status = 'uploading';
+    rec.progress = PROGRESS.uploading;
+    return;
+  }
   rec.status = 'transcribing';
   rec.progress = PROGRESS.transcribing;
 }

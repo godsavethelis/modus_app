@@ -1,18 +1,22 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, FlatList, Pressable, StyleSheet, View, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import { Screen } from '@/components/ui/Screen';
 import { Txt } from '@/components/ui/Txt';
+import { PhotoSheet } from '@/components/PhotoSheet';
 import { RecordButton } from '@/components/RecordButton';
 import { RecordingCard } from '@/components/RecordingCard';
 import { useInfiniteRecordings } from '@/hooks/useRecordings';
+import { recordingsApi } from '@/services/api';
 import { fontSize, radius, spacing, type Palette } from '@/theme';
 import { useTheme } from '@/theme/ThemeProvider';
 import type { Recording } from '@/types';
 
 export default function HomeScreen() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
@@ -20,21 +24,46 @@ export default function HomeScreen() {
     useInfiniteRecordings(15);
   const items = useMemo(() => data?.pages.flatMap((p) => p.items) ?? [], [data]);
 
-  // Плавающая REC появляется, когда пользователь прокрутил вниз.
-  const [showFab, setShowFab] = useState(false);
-  const fab = useRef(new Animated.Value(0)).current;
+  // Чёрная плавающая кнопка справа снизу. Пока герой-REC на экране — это
+  // вход в «фото» (камера). После скролла REC «переезжает» в неё же:
+  // кнопка превращается в «+» и раскрывает выбор «запись или фото».
+  const [scrolled, setScrolled] = useState(false);
+  const [dialOpen, setDialOpen] = useState(false);
+  const [sheetOpen, setSheetOpen] = useState(false);
+
+  const morph = useRef(new Animated.Value(0)).current; // 0 — камера, 1 — плюс
+  const dial = useRef(new Animated.Value(0)).current; // раскрытие опций «+»
   useEffect(() => {
-    Animated.spring(fab, { toValue: showFab ? 1 : 0, friction: 5, tension: 90, useNativeDriver: true }).start();
-  }, [showFab, fab]);
+    Animated.spring(morph, { toValue: scrolled ? 1 : 0, friction: 7, tension: 90, useNativeDriver: true }).start();
+    if (!scrolled) setDialOpen(false);
+  }, [scrolled, morph]);
+  useEffect(() => {
+    Animated.spring(dial, { toValue: dialOpen ? 1 : 0, friction: 8, tension: 80, useNativeDriver: true }).start();
+  }, [dialOpen, dial]);
 
   function onScroll(e: NativeSyntheticEvent<NativeScrollEvent>) {
-    setShowFab(e.nativeEvent.contentOffset.y > 160);
+    setScrolled(e.nativeEvent.contentOffset.y > 160);
+  }
+
+  function onFabPress() {
+    if (scrolled) setDialOpen((open) => !open);
+    else setSheetOpen(true);
+  }
+
+  function sendPhotos(photos: { photoUrl: string; thumbUrl: string }[]) {
+    setSheetOpen(false);
+    // Загрузка в фоне: карточки появляются в ленте со статусом «Загрузка…».
+    recordingsApi
+      .uploadPhotos(photos)
+      .then(() => queryClient.invalidateQueries({ queryKey: ['recordings'] }))
+      .catch(() => {});
   }
 
   function openRecording(rec: Recording) {
     // Запись открывается на любой стадии: пока идёт расшифровка,
     // экран записи сам показывает прогресс генерации текста.
-    router.push(`/recording/${rec.id}`);
+    if (rec.kind === 'photo') router.push(`/photo/${rec.id}`);
+    else router.push(`/recording/${rec.id}`);
   }
 
   const header = (
@@ -134,32 +163,100 @@ export default function HomeScreen() {
         />
       )}
 
-      {/* Плавающая быстрая кнопка записи (появляется пружиной в углу) */}
+      {/* Затемнение + две опции раскрытого «+» */}
+      {dialOpen ? (
+        <Pressable style={styles.dim} onPress={() => setDialOpen(false)} accessibilityLabel="Закрыть меню" />
+      ) : null}
       <Animated.View
-        pointerEvents={showFab ? 'box-none' : 'none'}
+        pointerEvents={dialOpen ? 'box-none' : 'none'}
         style={[
-          styles.fab,
+          styles.dial,
           {
-            opacity: fab,
-            transform: [
-              { scale: fab },
-              { translateY: fab.interpolate({ inputRange: [0, 1], outputRange: [24, 0] }) },
-              { rotate: fab.interpolate({ inputRange: [0, 1], outputRange: ['-40deg', '0deg'] }) },
-            ],
+            opacity: dial,
+            transform: [{ translateY: dial.interpolate({ inputRange: [0, 1], outputRange: [26, 0] }) }],
           },
         ]}
       >
-        <Pressable
-          onPress={() => router.push('/record')}
-          style={styles.fabBtn}
-          accessibilityRole="button"
-          accessibilityLabel="Записать"
-        >
-          <Txt weight="bold" size={13} color={colors.onAccent} style={{ letterSpacing: 1 }}>
-            REC
-          </Txt>
-        </Pressable>
+        <View style={styles.dialRow}>
+          <View style={styles.dialLabel}>
+            <Txt weight="semibold" size={fontSize.small}>
+              Запись
+            </Txt>
+          </View>
+          <Pressable
+            onPress={() => {
+              setDialOpen(false);
+              router.push('/record');
+            }}
+            style={[styles.dialBtn, { backgroundColor: colors.accent, boxShadow: '0 10px 24px rgba(225,84,58,0.4)' }]}
+            accessibilityRole="button"
+            accessibilityLabel="Записать аудио"
+          >
+            <Txt weight="bold" size={11} color={colors.onAccent} style={{ letterSpacing: 1 }}>
+              REC
+            </Txt>
+          </Pressable>
+        </View>
+        <View style={styles.dialRow}>
+          <View style={styles.dialLabel}>
+            <Txt weight="semibold" size={fontSize.small}>
+              Фото
+            </Txt>
+          </View>
+          <Pressable
+            onPress={() => {
+              setDialOpen(false);
+              setSheetOpen(true);
+            }}
+            style={[styles.dialBtn, { backgroundColor: colors.ink }]}
+            accessibilityRole="button"
+            accessibilityLabel="Отправить фото"
+          >
+            <Ionicons name="camera-outline" size={19} color={colors.bg} />
+          </Pressable>
+        </View>
       </Animated.View>
+
+      {/* Чёрный FAB: камера → после скролла «+» (и «×», пока меню открыто) */}
+      <Pressable
+        onPress={onFabPress}
+        style={styles.fab}
+        accessibilityRole="button"
+        accessibilityLabel={scrolled ? 'Создать' : 'Отправить фото'}
+      >
+        <Animated.View style={[styles.fabIcon, { opacity: morph.interpolate({ inputRange: [0, 0.5], outputRange: [1, 0], extrapolate: 'clamp' }) }]}>
+          <Ionicons name="camera-outline" size={22} color={colors.bg} />
+        </Animated.View>
+        <Animated.View
+          style={[
+            styles.fabIcon,
+            {
+              opacity: morph.interpolate({ inputRange: [0.5, 1], outputRange: [0, 1], extrapolate: 'clamp' }),
+              transform: [
+                {
+                  rotate: Animated.add(morph, dial).interpolate({
+                    inputRange: [0, 1, 2],
+                    outputRange: ['-90deg', '0deg', '45deg'],
+                  }),
+                },
+              ],
+            },
+          ]}
+        >
+          <Ionicons name="add" size={26} color={colors.bg} />
+        </Animated.View>
+      </Pressable>
+
+      {sheetOpen ? (
+        <PhotoSheet
+          onClose={() => setSheetOpen(false)}
+          onOpenCamera={() => {
+            setSheetOpen(false);
+            router.push('/camera');
+          }}
+          onSend={sendPhotos}
+        />
+      ) : null}
     </Screen>
   );
 }
@@ -212,14 +309,46 @@ const makeStyles = (colors: Palette) =>
       paddingVertical: spacing.sm,
       borderRadius: radius.pill,
     },
-    fab: { position: 'absolute', right: spacing.xl, bottom: 28, zIndex: 30 },
-    fabBtn: {
+    dim: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: 'rgba(17,17,17,0.35)',
+      zIndex: 25,
+    },
+    dial: { position: 'absolute', right: spacing.xl, bottom: 104, gap: spacing.md, zIndex: 30, alignItems: 'flex-end' },
+    dialRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+    dialLabel: {
+      backgroundColor: colors.surface,
+      borderRadius: radius.pill,
+      paddingHorizontal: spacing.md,
+      paddingVertical: 6,
+      borderWidth: 1,
+      borderColor: colors.hairline,
+      boxShadow: '0 6px 18px rgba(17,17,17,0.16)',
+    },
+    dialBtn: {
+      width: 52,
+      height: 52,
+      borderRadius: 26,
+      alignItems: 'center',
+      justifyContent: 'center',
+      boxShadow: '0 10px 24px rgba(17,17,17,0.3)',
+    },
+    fab: {
+      position: 'absolute',
+      right: spacing.xl,
+      bottom: 28,
       width: 62,
       height: 62,
       borderRadius: 31,
-      backgroundColor: colors.accent,
+      backgroundColor: colors.ink,
       alignItems: 'center',
       justifyContent: 'center',
-      boxShadow: '0 12px 30px rgba(225,84,58,0.42)',
+      boxShadow: '0 12px 30px rgba(17,17,17,0.35)',
+      zIndex: 30,
     },
+    fabIcon: { position: 'absolute', alignItems: 'center', justifyContent: 'center' },
   });
