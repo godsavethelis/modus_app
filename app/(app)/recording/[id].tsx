@@ -476,8 +476,8 @@ export default function RecordingDetailScreen() {
         <View style={styles.toastWrap} pointerEvents="none">
           <Reveal offset={20}>
             <View style={styles.toast}>
-              <Ionicons name="checkmark-circle" size={16} color={colors.onAccent} />
-              <Txt weight="medium" size={fontSize.small} color={colors.onAccent}>
+              <Ionicons name="checkmark-circle" size={16} color={colors.bg} />
+              <Txt weight="medium" size={fontSize.small} color={colors.bg}>
                 {toast}
               </Txt>
             </View>

@@ -12,6 +12,8 @@ import type { ProcessingStatus, Recording } from '@/types';
 interface Props {
   recording: Recording;
   onPress?: () => void;
+  /** Витрина состояний: показать карточку статично, без опроса API и без ретраев. */
+  preview?: boolean;
 }
 
 const PROCESSING: ProcessingStatus[] = ['uploading', 'transcribing', 'summarizing'];
@@ -24,14 +26,15 @@ const STAGE_LABEL: Partial<Record<ProcessingStatus, string>> = {
 };
 
 
-export function RecordingCard({ recording, onPress }: Props) {
+export function RecordingCard({ recording, onPress, preview = false }: Props) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
   // Пока запись обрабатывается, карточка сама опрашивает статус
-  // и показывает полоску прогресса вместо даты.
+  // и показывает полоску прогресса вместо даты. В витрине состояний
+  // опрос выключен — стадия берётся из самой записи.
   const isProcessing = PROCESSING.includes(recording.status);
-  const { data: live } = useProcessingStatus(recording.id, isProcessing);
+  const { data: live } = useProcessingStatus(recording.id, isProcessing && !preview);
   const retry = useRetryProcessing(recording.id);
   const stage = live?.status ?? recording.status;
   const progress = live?.progress ?? recording.progress ?? 0;
@@ -62,7 +65,7 @@ export function RecordingCard({ recording, onPress }: Props) {
             {/* Спека: карточка failed — кнопка retry. Запускает обработку заново. */}
             {stage === 'failed' ? (
               <Pressable
-                onPress={() => retry.mutate()}
+                onPress={() => { if (!preview) retry.mutate(); }}
                 disabled={retry.isPending}
                 hitSlop={8}
                 style={styles.retryBtn}

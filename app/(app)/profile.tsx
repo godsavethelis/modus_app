@@ -72,6 +72,21 @@ export default function ProfileScreen() {
           </View>
         </Reveal>
 
+        <Reveal delay={130}>
+          <Txt weight="semibold" size={fontSize.caption} color={colors.textMuted} style={styles.sectionLabel}>
+            ДЛЯ QA И ДЕМО
+          </Txt>
+          <Pressable onPress={() => router.push('/states')} style={styles.card}>
+            <View style={styles.row}>
+              <View style={styles.rowLeft}>
+                <Ionicons name="albums-outline" size={18} color={colors.ink} />
+                <Txt size={fontSize.base}>Витрина состояний</Txt>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+            </View>
+          </Pressable>
+        </Reveal>
+
         <Reveal delay={150}>
           <Pressable onPress={signOut} style={styles.logoutBtn}>
             <Ionicons name="log-out-outline" size={18} color={colors.dangerText} />

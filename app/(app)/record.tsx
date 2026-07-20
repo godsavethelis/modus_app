@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Linking, Platform, Pressable, StyleSheet, View } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import { Screen } from '@/components/ui/Screen';
@@ -23,7 +23,9 @@ export default function RecordScreen() {
   const [stopping, setStopping] = useState(false);
 
   // TODO(recorder): реальный запрос доступа к микрофону через expo-audio.
-  const [micDenied] = useState(MOCK_MIC_DENIED);
+  // ?denied=1 — из витрины состояний, чтобы посмотреть экран отказа без правки флага.
+  const { denied } = useLocalSearchParams<{ denied?: string }>();
+  const [micDenied] = useState(MOCK_MIC_DENIED || denied === '1');
 
   useEffect(() => {
     if (micDenied) return;
