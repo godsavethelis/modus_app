@@ -26,20 +26,15 @@ export default function HomeScreen() {
     useInfiniteRecordings(15);
   const items = useMemo(() => data?.pages.flatMap((p) => p.items) ?? [], [data]);
 
-  // Чёрная плавающая кнопка справа снизу. Пока герой-REC на экране — это
-  // вход в «фото» (камера). После скролла REC «переезжает» в неё же:
-  // кнопка превращается в «+» и раскрывает выбор «запись или фото».
+  // Чёрный «+» справа снизу раскрывает меню создания: «Фото» и «Файл».
+  // Пока герой-REC на экране, пункта «Запись» в меню нет (он дублировал бы
+  // героя); после скролла REC «переезжает» в меню третьей опцией.
   const [scrolled, setScrolled] = useState(false);
   const [dialOpen, setDialOpen] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [fileSheetOpen, setFileSheetOpen] = useState(false);
 
-  const morph = useRef(new Animated.Value(0)).current; // 0 — камера, 1 — плюс
   const dial = useRef(new Animated.Value(0)).current; // раскрытие опций «+»
-  useEffect(() => {
-    Animated.spring(morph, { toValue: scrolled ? 1 : 0, friction: 7, tension: 90, useNativeDriver: true }).start();
-    if (!scrolled) setDialOpen(false);
-  }, [scrolled, morph]);
   useEffect(() => {
     Animated.spring(dial, { toValue: dialOpen ? 1 : 0, friction: 8, tension: 80, useNativeDriver: true }).start();
   }, [dialOpen, dial]);
@@ -49,8 +44,7 @@ export default function HomeScreen() {
   }
 
   function onFabPress() {
-    if (scrolled) setDialOpen((open) => !open);
-    else setSheetOpen(true);
+    setDialOpen((open) => !open);
   }
 
   function sendPhotos(photos: { photoUrl: string; thumbUrl: string }[]) {
@@ -190,26 +184,28 @@ export default function HomeScreen() {
           },
         ]}
       >
-        <View style={styles.dialRow}>
-          <View style={styles.dialLabel}>
-            <Txt weight="semibold" size={fontSize.small}>
-              Запись
-            </Txt>
+        {scrolled ? (
+          <View style={styles.dialRow}>
+            <View style={styles.dialLabel}>
+              <Txt weight="semibold" size={fontSize.small}>
+                Запись
+              </Txt>
+            </View>
+            <Pressable
+              onPress={() => {
+                setDialOpen(false);
+                router.push('/record');
+              }}
+              style={[styles.dialBtn, { backgroundColor: colors.accent, boxShadow: '0 10px 24px rgba(225,84,58,0.4)' }]}
+              accessibilityRole="button"
+              accessibilityLabel="Записать аудио"
+            >
+              <Txt weight="bold" size={11} color={colors.onAccent} style={{ letterSpacing: 1 }}>
+                REC
+              </Txt>
+            </Pressable>
           </View>
-          <Pressable
-            onPress={() => {
-              setDialOpen(false);
-              router.push('/record');
-            }}
-            style={[styles.dialBtn, { backgroundColor: colors.accent, boxShadow: '0 10px 24px rgba(225,84,58,0.4)' }]}
-            accessibilityRole="button"
-            accessibilityLabel="Записать аудио"
-          >
-            <Txt weight="bold" size={11} color={colors.onAccent} style={{ letterSpacing: 1 }}>
-              REC
-            </Txt>
-          </Pressable>
-        </View>
+        ) : null}
         <View style={styles.dialRow}>
           <View style={styles.dialLabel}>
             <Txt weight="semibold" size={fontSize.small}>
@@ -248,30 +244,17 @@ export default function HomeScreen() {
         </View>
       </Animated.View>
 
-      {/* Чёрный FAB: камера → после скролла «+» (и «×», пока меню открыто) */}
+      {/* Чёрный FAB «+» (поворачивается в «×», пока меню открыто) */}
       <Pressable
         onPress={onFabPress}
         style={styles.fab}
         accessibilityRole="button"
-        accessibilityLabel={scrolled ? 'Создать' : 'Отправить фото'}
+        accessibilityLabel={dialOpen ? 'Закрыть меню' : 'Создать'}
       >
-        <Animated.View style={[styles.fabIcon, { opacity: morph.interpolate({ inputRange: [0, 0.5], outputRange: [1, 0], extrapolate: 'clamp' }) }]}>
-          <Ionicons name="camera-outline" size={22} color={colors.bg} />
-        </Animated.View>
         <Animated.View
           style={[
             styles.fabIcon,
-            {
-              opacity: morph.interpolate({ inputRange: [0.5, 1], outputRange: [0, 1], extrapolate: 'clamp' }),
-              transform: [
-                {
-                  rotate: Animated.add(morph, dial).interpolate({
-                    inputRange: [0, 1, 2],
-                    outputRange: ['-90deg', '0deg', '45deg'],
-                  }),
-                },
-              ],
-            },
+            { transform: [{ rotate: dial.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '45deg'] }) }] },
           ]}
         >
           <Ionicons name="add" size={26} color={colors.bg} />

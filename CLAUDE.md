@@ -17,7 +17,7 @@ npx expo start        # затем клавиша w — откроется в б
 Гоняем и проверяем через preview-инструменты (`.claude/launch.json` → сервер `modus-web`, порт 8081).
 
 ## Архитектура
-- `app/` — экраны (expo-router): `(auth)/login`, `(app)/index` (главный, кнопка REC + список + чёрный FAB фото/плюс), `(app)/record`, `(app)/profile`, `(app)/recording/[id]` (плеер + Транскрипт/Саммари; обработка показывается состоянием внутри этого экрана и карточек), `(app)/camera` (мок-камера в стиле iOS), `(app)/photo/[id]` (просмотрщик фото).
+- `app/` — экраны (expo-router): `(auth)/login`, `(app)/index` (главный, кнопка REC + список + чёрный FAB «+»: меню Фото/Файл, после скролла ещё Запись), `(app)/record`, `(app)/profile`, `(app)/recording/[id]` (плеер + Транскрипт/Саммари; обработка показывается состоянием внутри этого экрана и карточек), `(app)/camera` (мок-камера в стиле iOS), `(app)/photo/[id]` (просмотрщик фото).
 - `src/services/api/` — **единственный слой для бэкенда** (моки + `TODO(backend)`); `src/services/mocks/data.ts` — весь хардкод.
 - `src/theme/tokens.ts` — дизайн-токены. `src/components/` — UI. `src/hooks/` — React Query + `useMockPlayer`.
 
