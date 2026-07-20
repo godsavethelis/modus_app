@@ -51,11 +51,6 @@ export function useProcessingStatus(id: string, enabled: boolean) {
   });
 }
 
-/** Ссылка на запись для шеринга. */
-export function useShareLink(id: string) {
-  return useMutation({ mutationFn: () => recordingsApi.createShareLink(id) });
-}
-
 /** Выгрузка записи файлом: аудио, транскрипт или саммари. */
 export function useExportRecording(id: string) {
   return useMutation({

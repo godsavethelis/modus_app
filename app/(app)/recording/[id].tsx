@@ -14,6 +14,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { AudioPlayer } from '@/components/AudioPlayer';
 import { DotCloud } from '@/components/DotCloud';
+import { OSShareSheet } from '@/components/OSShareSheet';
 import { ProgressBar } from '@/components/ProgressBar';
 import { Screen } from '@/components/ui/Screen';
 import { Txt } from '@/components/ui/Txt';
@@ -23,8 +24,6 @@ import {
   usePatchRecording,
   useProcessingStatus,
   useRetryProcessing,
-  useExportRecording,
-  useShareLink,
   useDeleteRecording,
   useStartGeneration,
   useRegenerateSummary,
@@ -53,10 +52,11 @@ const STAGE_TAG: Partial<Record<ProcessingStatus, string>> = {
   summarizing: 'САММАРИ',
 };
 
-const EXPORT_DONE: Record<ExportKind, string> = {
-  audio: 'Аудио выгружено',
-  transcript: 'Транскрипт выгружен',
-  summary: 'Саммари выгружено',
+/** Как показать файл каждого типа в шапке системного share sheet. */
+const FILE_INFO: Record<ExportKind, { label: string; ext: string; meta: string; glyph: 'musical-notes' | 'document-text' | 'list' }> = {
+  audio: { label: 'Аудио', ext: 'm4a', meta: 'Аудиозапись', glyph: 'musical-notes' },
+  transcript: { label: 'Транскрипт', ext: 'txt', meta: 'Текстовый файл', glyph: 'document-text' },
+  summary: { label: 'Саммари', ext: 'txt', meta: 'Текстовый файл', glyph: 'list' },
 };
 
 export default function RecordingDetailScreen() {
@@ -70,8 +70,6 @@ export default function RecordingDetailScreen() {
   const retry = useRetryProcessing(id);
   const gen = useStartGeneration(id);
   const regen = useRegenerateSummary(id);
-  const shareLink = useShareLink(id);
-  const exportFile = useExportRecording(id);
   const player = useMockPlayer(rec?.durationSec ?? 0);
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -82,6 +80,8 @@ export default function RecordingDetailScreen() {
   const [draft, setDraft] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
+  /** Тип файла, для которого открыт системный share sheet (null — закрыт). */
+  const [shareFile, setShareFile] = useState<ExportKind | null>(null);
   const [renameOpen, setRenameOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [draftTitle, setDraftTitle] = useState('');
@@ -199,14 +199,12 @@ export default function RecordingDetailScreen() {
   function onDelete() {
     del.mutate(id, { onSuccess: () => goBack(router) });
   }
-  function onShareLink() {
+  function onPickFile(kind: ExportKind) {
+    // Файл выбран — открываем системное меню «Поделиться» (мок).
+    // TODO(recorder): на устройстве сначала exportRecording → localUri,
+    // затем нативный Share.share({ url }). Здесь показываем мок OSShareSheet.
     setShareOpen(false);
-    // TODO(recorder): нативный share-sheet / копирование в буфер.
-    shareLink.mutate(undefined, { onSuccess: () => setToast('Ссылка скопирована') });
-  }
-  function onExport(kind: ExportKind) {
-    setShareOpen(false);
-    exportFile.mutate(kind, { onSuccess: () => setToast(EXPORT_DONE[kind]) });
+    setShareFile(kind);
   }
 
   return (
@@ -495,20 +493,10 @@ export default function RecordingDetailScreen() {
             <View style={styles.grabber} />
 
             <Txt weight="bold" size={fontSize.lg} style={styles.sheetTitle}>
-              Поделиться
+              Поделиться файлом
             </Txt>
-            <Pressable style={styles.sheetRow} onPress={onShareLink}>
-              <Ionicons name="link-outline" size={19} color={colors.ink} />
-              <Txt size={fontSize.base} style={{ flex: 1 }}>
-                Ссылка
-              </Txt>
-              <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
-            </Pressable>
-
-            <View style={styles.sheetDivider} />
-
-            <Txt weight="bold" size={fontSize.lg} style={styles.sheetTitle}>
-              Экспорт файлом
+            <Txt size={fontSize.small} color={colors.textSecondary} style={styles.sheetHint}>
+              Через меню телефона — в мессенджер, почту или Файлы.
             </Txt>
             {(
               [
@@ -521,17 +509,27 @@ export default function RecordingDetailScreen() {
                 key={row.kind}
                 style={styles.sheetRow}
                 disabled={!row.on}
-                onPress={() => onExport(row.kind)}
+                onPress={() => onPickFile(row.kind)}
               >
                 <Ionicons name={row.icon} size={19} color={row.on ? colors.ink : colors.textMuted} />
                 <Txt size={fontSize.base} color={row.on ? colors.ink : colors.textMuted} style={{ flex: 1 }}>
                   {row.label}
                 </Txt>
-                <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+                <Ionicons name="share-outline" size={16} color={colors.textMuted} />
               </Pressable>
             ))}
           </View>
         </View>
+      ) : null}
+
+      {/* Системное меню «Поделиться» (мок iOS share sheet) */}
+      {shareFile && rec ? (
+        <OSShareSheet
+          fileName={`${FILE_INFO[shareFile].label} — ${rec.title}.${FILE_INFO[shareFile].ext}`}
+          fileMeta={FILE_INFO[shareFile].meta}
+          fileGlyph={FILE_INFO[shareFile].glyph}
+          onClose={() => setShareFile(null)}
+        />
       ) : null}
 
       {/* Меню записи */}
@@ -811,6 +809,7 @@ const makeStyles = (colors: Palette) =>
       marginBottom: spacing.sm,
     },
     sheetTitle: { paddingHorizontal: spacing.xl, paddingTop: spacing.md, paddingBottom: spacing.xs },
+    sheetHint: { paddingHorizontal: spacing.xl, paddingBottom: spacing.sm, lineHeight: 17 },
     sheetRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingHorizontal: spacing.xl, paddingVertical: spacing.lg },
     sheetDivider: { height: 1, backgroundColor: colors.hairline, marginHorizontal: spacing.xl },
     dialog: { width: '100%', maxWidth: 340, backgroundColor: colors.surface, borderRadius: radius.card, padding: spacing.xl },

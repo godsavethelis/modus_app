@@ -129,15 +129,6 @@ export async function sendToInbox(id: string): Promise<RecordingDetail> {
   return rec;
 }
 
-/** Публичная ссылка на запись — для кнопки «Поделиться → Ссылка». */
-export async function createShareLink(id: string): Promise<string> {
-  await delay(500);
-  // TODO(backend): POST /api/mobile/recording/:id/share
-  const rec = mockRecordings.find((r) => r.id === id);
-  if (!rec) throw new Error(`Запись ${id} не найдена`);
-  return `https://app.modus.app/r/${id}`;
-}
-
 /** Экспорт записи файлом. Возвращает адрес готового файла. */
 export async function exportRecording(id: string, kind: ExportKind): Promise<string> {
   await delay(900);

@@ -79,7 +79,6 @@ src/
 | `recordingsApi.patchRecording` | `PATCH /api/mobile/recording/:id` |
 | `recordingsApi.deleteRecording` | `DELETE /api/mobile/recording/:id` |
 | `recordingsApi.sendToInbox` | `POST /api/mobile/recording/:id/send-inbox` |
-| `recordingsApi.createShareLink` | `POST /api/mobile/recording/:id/share` |
 | `recordingsApi.exportRecording` | `GET /api/mobile/recording/:id/export?kind=` |
 | `transcribeApi.startTranscription` / `getStatus` | `POST /api/modus/transcribe/start`, `GET /api/modus/transcribe/status` |
 | `transcribeApi.regenerateSummary` | `POST /api/modus/summarize/regenerate` |
@@ -96,7 +95,9 @@ src/
 
 **Фото в библиотеку (вне спеки, по запросу заказчика).** Фото — самостоятельный артефакт в общей ленте: чёрная плавающая кнопка справа снизу открывает шторку-галерею (паттерн Telegram: первый тайл — камера, мультивыбор кружочками, «Отправить N» создаёт N карточек). После скролла кнопка превращается в «+» и раскрывает выбор «Запись / Фото». Камера — мок в нативном стиле iOS (стоковый кадр вместо видоискателя), после затвора — «Переснять / Отправить». Тап по готовой карточке — тёмный просмотрщик с крестиком и статусом «В библиотеке». Галерея и снимки — стоковые картинки с picsum.photos (нужна сеть); реальные камера/галерея — `TODO(recorder)` (expo-camera / expo-image-picker).
 
-**Ещё не подключено к нативу (помечено `TODO(recorder)`):** реальная запись/воспроизведение через `expo-audio` в `app/(app)/record.tsx` и плеер в деталях. Шеринг ссылки и экспорт файлом тоже мок — нужен нативный share-sheet. Сейчас это имитация (таймер + демо-текст).
+**Поделиться файлом (мок меню ОС).** В деталях записи кнопка «Поделиться» открывает шторку выбора файла (Аудио / Транскрипт / Саммари), тап по файлу показывает мок системного iOS share sheet (`src/components/OSShareSheet.tsx`) — ряд приложений и «Копировать / Сохранить в Файлы». Пункты визуальные (тап закрывает). Отдельной «Поделиться ссылкой» больше нет (убрана по решению продукта). `TODO(recorder)`: на устройстве — `exportRecording` → localUri → нативный `Share.share({ url })`, компонент-мок удалить.
+
+**Ещё не подключено к нативу (помечено `TODO(recorder)`):** реальная запись/воспроизведение через `expo-audio` в `app/(app)/record.tsx` и плеер в деталях. Сейчас это имитация (таймер + демо-текст).
 
 ---
 
