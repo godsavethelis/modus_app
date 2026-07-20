@@ -4,14 +4,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import {
-  useFonts,
-  JetBrainsMono_300Light,
-  JetBrainsMono_400Regular,
-  JetBrainsMono_500Medium,
-  JetBrainsMono_600SemiBold,
-  JetBrainsMono_700Bold,
-} from '@expo-google-fonts/jetbrains-mono';
+import { useFonts } from 'expo-font';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
 import { WebPhoneFrame } from '@/components/WebPhoneFrame';
 import { ThemeProvider, useTheme } from '@/theme/ThemeProvider';
@@ -47,12 +40,12 @@ function RootNavigator() {
 }
 
 export default function RootLayout() {
+  // CoFo Sans — локальные .ttf в assets/fonts (конверт из woff2). Имена ключей
+  // совпадают с font.* в src/theme/tokens.ts.
   const [fontsLoaded] = useFonts({
-    JetBrainsMono_300Light,
-    JetBrainsMono_400Regular,
-    JetBrainsMono_500Medium,
-    JetBrainsMono_600SemiBold,
-    JetBrainsMono_700Bold,
+    'CoFoSans-Regular': require('../assets/fonts/CoFoSans-Regular.ttf'),
+    'CoFoSans-Medium': require('../assets/fonts/CoFoSans-Medium.ttf'),
+    'CoFoSans-Bold': require('../assets/fonts/CoFoSans-Bold.ttf'),
   });
 
   useEffect(() => {

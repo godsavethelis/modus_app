@@ -118,7 +118,7 @@ eas submit --profile production --platform ios
 
 ## Дизайн
 
-Визуальный язык — эстетика Nothing: монохром + красный `#E5322C`, моноширинный шрифт (JetBrains Mono), фирменное «облако точек». Токены — `src/theme/tokens.ts`.
+Визуальный язык — эстетика Nothing: монохром + красный `#E5322C`, гротеск CoFo Sans, фирменное «облако точек». Токены — `src/theme/tokens.ts`.
 
 ---
 

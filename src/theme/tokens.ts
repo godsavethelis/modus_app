@@ -62,15 +62,18 @@ export const radius = {
 } as const;
 
 /**
- * Моноширинный шрифт из @expo-google-fonts/jetbrains-mono.
- * Имена ключей совпадают с экспортами пакета — их грузит useFonts в app/_layout.
+ * CoFo Sans — локальные .ttf из assets/fonts (грузит useFonts в app/_layout).
+ * У гарнитуры три начертания (Regular/Medium/Bold), поэтому 5 семантических
+ * весов раскладываются в 3 физических с сохранением иерархии
+ * regular(400) < semibold(500) < bold(700):
+ *   light/regular → Regular, medium/semibold → Medium, bold → Bold.
  */
 export const font = {
-  light: 'JetBrainsMono_300Light',
-  regular: 'JetBrainsMono_400Regular',
-  medium: 'JetBrainsMono_500Medium',
-  semibold: 'JetBrainsMono_600SemiBold',
-  bold: 'JetBrainsMono_700Bold',
+  light: 'CoFoSans-Regular',
+  regular: 'CoFoSans-Regular',
+  medium: 'CoFoSans-Medium',
+  semibold: 'CoFoSans-Medium',
+  bold: 'CoFoSans-Bold',
 } as const;
 
 export const fontSize = {
