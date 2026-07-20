@@ -64,6 +64,37 @@ export async function uploadRecording(localUri: string, durationSec: number): Pr
 }
 
 /**
+ * Загрузка выбранного на телефоне аудиофайла (мок-пикер «Файлы»).
+ * Карточка появляется в ленте со стадией uploading → ready; расшифровку
+ * пользователь запускает кнопкой «Сгенерировать» в деталях — дальше
+ * файл неотличим от записи с диктофона.
+ */
+export async function uploadAudioFile(file: {
+  name: string;
+  sizeMb: number;
+  durationSec: number;
+}): Promise<RecordingDetail> {
+  await delay(700);
+  // TODO(backend): POST /api/mobile/recording/upload (multipart, тот же эндпоинт,
+  // что у записи; принимает произвольные аудиоформаты, валидирует тип и лимит 500 МБ).
+  const created: RecordingDetail = {
+    id: `f_${Date.now()}`,
+    title: file.name.replace(/\.[^.]+$/, ''),
+    createdAt: new Date().toISOString(),
+    durationSec: file.durationSec,
+    status: 'uploading',
+    progress: 0,
+    sentToInbox: false,
+    sizeMb: file.sizeMb,
+    audioUrl: '',
+    speakers: [],
+    segments: [],
+  };
+  mockRecordings.unshift(created);
+  return created;
+}
+
+/**
  * Отправка фото в библиотеку: каждое становится отдельным артефактом
  * со стадией uploading → ready (карточка в ленте показывает прогресс).
  */

@@ -5,6 +5,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import { Screen } from '@/components/ui/Screen';
 import { Txt } from '@/components/ui/Txt';
+import { FilePickerSheet } from '@/components/FilePickerSheet';
 import { PhotoSheet } from '@/components/PhotoSheet';
 import { RecordButton } from '@/components/RecordButton';
 import { RecordingCard } from '@/components/RecordingCard';
@@ -12,6 +13,7 @@ import { useInfiniteRecordings } from '@/hooks/useRecordings';
 import { recordingsApi } from '@/services/api';
 import { fontSize, radius, spacing, type Palette } from '@/theme';
 import { useTheme } from '@/theme/ThemeProvider';
+import type { MockAudioFile } from '@/services/mocks/data';
 import type { Recording } from '@/types';
 
 export default function HomeScreen() {
@@ -30,6 +32,7 @@ export default function HomeScreen() {
   const [scrolled, setScrolled] = useState(false);
   const [dialOpen, setDialOpen] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [fileSheetOpen, setFileSheetOpen] = useState(false);
 
   const morph = useRef(new Animated.Value(0)).current; // 0 — камера, 1 — плюс
   const dial = useRef(new Animated.Value(0)).current; // раскрытие опций «+»
@@ -55,6 +58,16 @@ export default function HomeScreen() {
     // Загрузка в фоне: карточки появляются в ленте со статусом «Загрузка…».
     recordingsApi
       .uploadPhotos(photos)
+      .then(() => queryClient.invalidateQueries({ queryKey: ['recordings'] }))
+      .catch(() => {});
+  }
+
+  function sendFile(file: MockAudioFile) {
+    setFileSheetOpen(false);
+    // Как у фото: карточка появляется в ленте со статусом «Загрузка…»,
+    // расшифровку пользователь запустит из деталей кнопкой «Сгенерировать».
+    recordingsApi
+      .uploadAudioFile(file)
       .then(() => queryClient.invalidateQueries({ queryKey: ['recordings'] }))
       .catch(() => {});
   }
@@ -215,6 +228,24 @@ export default function HomeScreen() {
             <Ionicons name="camera-outline" size={19} color={colors.bg} />
           </Pressable>
         </View>
+        <View style={styles.dialRow}>
+          <View style={styles.dialLabel}>
+            <Txt weight="semibold" size={fontSize.small}>
+              Файл
+            </Txt>
+          </View>
+          <Pressable
+            onPress={() => {
+              setDialOpen(false);
+              setFileSheetOpen(true);
+            }}
+            style={[styles.dialBtn, { backgroundColor: colors.ink }]}
+            accessibilityRole="button"
+            accessibilityLabel="Загрузить аудиофайл"
+          >
+            <Ionicons name="musical-notes-outline" size={19} color={colors.bg} />
+          </Pressable>
+        </View>
       </Animated.View>
 
       {/* Чёрный FAB: камера → после скролла «+» (и «×», пока меню открыто) */}
@@ -256,6 +287,10 @@ export default function HomeScreen() {
           }}
           onSend={sendPhotos}
         />
+      ) : null}
+
+      {fileSheetOpen ? (
+        <FilePickerSheet onClose={() => setFileSheetOpen(false)} onPick={sendFile} />
       ) : null}
     </Screen>
   );

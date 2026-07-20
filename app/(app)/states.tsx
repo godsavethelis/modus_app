@@ -13,6 +13,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Screen } from '@/components/ui/Screen';
 import { Txt } from '@/components/ui/Txt';
+import { FilePickerSheet } from '@/components/FilePickerSheet';
 import { RecordingCard } from '@/components/RecordingCard';
 import { goBack } from '@/lib/nav';
 import { fontSize, radius, shadow, spacing, type Palette } from '@/theme';
@@ -42,7 +43,7 @@ const TOASTS = [
   'Нет соединения с сервером',
 ];
 
-type Overlay = 'update' | 'cancel' | 'logout' | null;
+type Overlay = 'update' | 'cancel' | 'logout' | 'filePicker' | null;
 
 export default function StatesScreen() {
   const router = useRouter();
@@ -92,6 +93,7 @@ export default function StatesScreen() {
           <RowBtn icon="cloud-download-outline" label="Обновите приложение" onPress={() => setOverlay('update')} styles={styles} colors={colors} />
           <RowBtn icon="close-circle-outline" label="Отмена записи — подтверждение" onPress={() => setOverlay('cancel')} styles={styles} colors={colors} />
           <RowBtn icon="log-out-outline" label="Выход с незагруженными записями" onPress={() => setOverlay('logout')} styles={styles} colors={colors} />
+          <RowBtn icon="musical-notes-outline" label="Пикер аудиофайла (ошибки — по тапу внутри)" onPress={() => setOverlay('filePicker')} styles={styles} colors={colors} />
         </Section>
 
         {/* Список */}
@@ -194,6 +196,16 @@ export default function StatesScreen() {
           onClose={() => setOverlay(null)}
           styles={styles}
           colors={colors}
+        />
+      ) : null}
+
+      {overlay === 'filePicker' ? (
+        <FilePickerSheet
+          onClose={() => setOverlay(null)}
+          onPick={(f) => {
+            setOverlay(null);
+            setToast(`Файл выбран: ${f.name}`);
+          }}
         />
       ) : null}
 

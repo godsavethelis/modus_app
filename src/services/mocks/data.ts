@@ -337,6 +337,36 @@ export const mockGallery = [
  */
 export const mockCameraShots = ['shot-a', 'shot-b', 'shot-c', 'shot-d'].map((seed) => stock(`modus-${seed}`));
 
+/** Лимит размера загружаемого аудиофайла в МБ (фиксируем как требование к бэкенду). */
+export const FILE_MAX_MB = 500;
+
+/** Файл в мок-пикере «Файлы» (загрузка аудио на транскрибацию). */
+export interface MockAudioFile {
+  id: string;
+  name: string;
+  sizeMb: number;
+  durationSec: number;
+  /** Откуда файл на телефоне — подпись в строке пикера. */
+  source: string;
+  /** false — не-аудио (например видео): выбрать нельзя, тап покажет тост. */
+  isAudio: boolean;
+}
+
+/**
+ * Мок «недавних файлов телефона» для пикера загрузки аудио.
+ * Последние два — «проблемные» (видео и файл больше лимита): тап по ним
+ * показывает тост с причиной, пикер остаётся открытым.
+ * TODO(recorder): на устройстве заменить на expo-document-picker (type: 'audio/*').
+ */
+export const mockFiles: MockAudioFile[] = [
+  { id: 'f_0', name: 'Встреча с подрядчиком.m4a', sizeMb: 48, durationSec: 3120, source: 'Диктофон', isAudio: true },
+  { id: 'f_1', name: 'voice_2026-07-18.ogg', sizeMb: 6, durationSec: 420, source: 'Telegram', isAudio: true },
+  { id: 'f_2', name: 'Интервью кандидата.mp3', sizeMb: 61, durationSec: 3840, source: 'Загрузки', isAudio: true },
+  { id: 'f_3', name: 'Стендап команды.wav', sizeMb: 210, durationSec: 1260, source: 'Диктофон', isAudio: true },
+  { id: 'f_4', name: 'Лекция полная.wav', sizeMb: 700, durationSec: 5400, source: 'Загрузки', isAudio: true },
+  { id: 'f_5', name: 'Демо запуска.mp4', sizeMb: 480, durationSec: 95, source: 'Загрузки', isAudio: false },
+];
+
 /** Авто-имя фото: «Фото 18 июля, 14:42» — подписи в флоу нет. */
 export function makePhotoTitle(date: Date): string {
   const day = date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
