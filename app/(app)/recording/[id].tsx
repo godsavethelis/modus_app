@@ -31,7 +31,7 @@ import {
 import { useMockPlayer } from '@/hooks/useMockPlayer';
 import { formatDateTime, formatTimecode } from '@/lib/format';
 import { goBack } from '@/lib/nav';
-import { font, fontSize, radius, spacing, type Palette } from '@/theme';
+import { font, fontSize, radius, readable, spacing, type Palette } from '@/theme';
 import { useTheme } from '@/theme/ThemeProvider';
 import type { ExportKind, ProcessingStatus } from '@/types';
 
@@ -815,7 +815,7 @@ const makeStyles = (colors: Palette) =>
     dialog: { width: '100%', maxWidth: 340, backgroundColor: colors.surface, borderRadius: radius.card, padding: spacing.xl },
     dialogInput: {
       fontFamily: font.regular,
-      fontSize: fontSize.body,
+      fontSize: readable(fontSize.body),
       color: colors.ink,
       borderWidth: 1,
       borderColor: colors.hairline,

@@ -6,7 +6,7 @@ import { Txt } from '@/components/ui/Txt';
 import { Reveal } from '@/components/ui/Reveal';
 import { useAuth } from '@/context/AuthContext';
 import { ApiError } from '@/services/api';
-import { font, fontSize, radius, spacing, type Palette } from '@/theme';
+import { font, fontSize, radius, readable, spacing, type Palette } from '@/theme';
 import { useTheme } from '@/theme/ThemeProvider';
 
 export default function LoginScreen() {
@@ -127,7 +127,7 @@ const makeStyles = (colors: Palette) =>
   input: {
     flex: 1,
     fontFamily: font.regular,
-    fontSize: fontSize.body,
+    fontSize: readable(fontSize.body),
     color: colors.ink,
     padding: 0,
   },

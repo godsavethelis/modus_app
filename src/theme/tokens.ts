@@ -76,6 +76,10 @@ export const font = {
   bold: 'CoFoSans-Bold',
 } as const;
 
+/**
+ * Базовые кегли (пропорции визуального языка). На рендере `Txt` прогоняет их
+ * через `readable()` — не читай эти числа как итоговые px на экране.
+ */
 export const fontSize = {
   micro: 10,
   caption: 11,
@@ -87,6 +91,18 @@ export const fontSize = {
   display: 26,
   hero: 44,
 } as const;
+
+/**
+ * Читаемость под мобильные гайдлайны. Базовые кегли задуманы мелко (техно-моно-
+ * эстетика: тело 12–14, лейблы 10–11), а Apple HIG (тело 17, минимум 11) и
+ * Material 3 (тело 14–16, минимум 12) требуют крупнее. `readable()` — единая
+ * точка приведения: множитель сохраняет иерархию 1:1, пол не даёт тексту уйти
+ * ниже порога читаемости (Apple Caption 2 = 11pt). Применяется в `Txt` (весь
+ * текст идёт через него) и в полях ввода (они `Txt` минуют).
+ */
+export const TEXT_SCALE = 1.18;
+export const MIN_FONT_SIZE = 11;
+export const readable = (size: number) => Math.max(Math.round(size * TEXT_SCALE), MIN_FONT_SIZE);
 
 /** Тайминги анимаций (мс). */
 export const timing = {
