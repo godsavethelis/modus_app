@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, Linking, Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Screen } from '@/components/ui/Screen';
 import { Txt } from '@/components/ui/Txt';
@@ -8,6 +8,9 @@ import { useAuth } from '@/context/AuthContext';
 import { ApiError } from '@/services/api';
 import { font, fontSize, radius, readable, spacing, type Palette } from '@/theme';
 import { useTheme } from '@/theme/ThemeProvider';
+
+const OFFER_URL = 'https://modusapp.ru/offer';
+const POLICY_URL = 'https://modusapp.ru/policy';
 
 export default function LoginScreen() {
   const { signIn } = useAuth();
@@ -104,6 +107,23 @@ export default function LoginScreen() {
             </Txt>
           </Pressable>
         </Reveal>
+
+        <Reveal delay={280}>
+          <Txt size={fontSize.small} color={colors.textSecondary} align="center" style={styles.legal}>
+            Я согласен с{' '}
+            <Txt
+              size={fontSize.small}
+              color={colors.accent}
+              onPress={() => Linking.openURL(OFFER_URL)}
+            >
+              Условиями использования
+            </Txt>{' '}
+            {'и\u00A0' /* nbsp: «и» не висит в конце строки */}
+            <Txt size={fontSize.small} color={colors.accent} onPress={() => Linking.openURL(POLICY_URL)}>
+              Политикой
+            </Txt>
+          </Txt>
+        </Reveal>
       </KeyboardAvoidingView>
     </Screen>
   );
@@ -139,4 +159,5 @@ const makeStyles = (colors: Palette) =>
     justifyContent: 'center',
     marginTop: spacing.sm,
   },
+  legal: { lineHeight: 18, paddingHorizontal: spacing.sm },
 });
