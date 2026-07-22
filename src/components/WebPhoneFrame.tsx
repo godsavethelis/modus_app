@@ -9,7 +9,12 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { Platform, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Txt } from './ui/Txt';
+import { useImmersive } from '@/theme/ImmersiveContext';
 import { useTheme } from '@/theme/ThemeProvider';
+
+/** Фон и чернила статус-бара на «погружённом» экране — под лайтбокс фото. */
+const IMMERSIVE_BG = '#0A0A0A';
+const IMMERSIVE_INK = '#F4F4F4';
 
 const PHONE_W = 390;
 const PHONE_H = 844;
@@ -24,22 +29,27 @@ function currentTime(): string {
 
 function StatusBar() {
   const { colors } = useTheme();
+  const { immersive } = useImmersive();
   const [time, setTime] = useState(currentTime());
   useEffect(() => {
     const id = setInterval(() => setTime(currentTime()), 15000);
     return () => clearInterval(id);
   }, []);
 
+  // На «погружённом» экране (лайтбокс фото) статус-бар живёт по его правилам,
+  // а не по теме приложения: иначе светлая полоса с часами висит над чёрным.
+  const ink = immersive ? IMMERSIVE_INK : colors.ink;
+
   return (
-    <View style={styles.statusBar}>
-      <Txt weight="semibold" size={15} color={colors.ink}>
+    <View style={[styles.statusBar, immersive && { backgroundColor: IMMERSIVE_BG }]}>
+      <Txt weight="semibold" size={15} color={ink}>
         {time}
       </Txt>
       <View style={styles.island} />
       <View style={styles.statusIcons}>
-        <Ionicons name="cellular" size={16} color={colors.ink} />
-        <Ionicons name="wifi" size={16} color={colors.ink} />
-        <Ionicons name="battery-full" size={22} color={colors.ink} />
+        <Ionicons name="cellular" size={16} color={ink} />
+        <Ionicons name="wifi" size={16} color={ink} />
+        <Ionicons name="battery-full" size={22} color={ink} />
       </View>
     </View>
   );

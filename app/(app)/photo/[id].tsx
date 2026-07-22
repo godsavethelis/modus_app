@@ -1,21 +1,27 @@
 /**
  * Просмотрщик фото: тёмный лайтбокс с оригиналом в цвете.
- * Закрывается крестиком; «...» в топбаре открывает переименование и удаление —
- * тот же паттерн, что на экране записи. Экран живёт вне темы приложения,
- * поэтому диалоги идут с tone="dark".
+ *
+ * Топбар повторяет экран записи: слева закрытие, справа «...» с
+ * переименованием и удалением. Экран живёт вне темы приложения (своя тёмная
+ * палитра), поэтому диалоги идут с tone="dark", а статус-бар переключается
+ * в светлые иконки через useImmersiveScreen.
+ *
+ * Смахивание влево/вправо листает фото в порядке ленты; аудиозаписи
+ * пропускаются — в лайтбоксе перебираются только фото.
  */
-import { useMemo, useState } from 'react';
-import { ActivityIndicator, Image, Pressable, StyleSheet, View } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, Animated, Image, PanResponder, Pressable, StyleSheet, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Txt } from '@/components/ui/Txt';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { RenameDialog } from '@/components/RenameDialog';
-import { useDeleteRecording, useRecording, useRenameRecording } from '@/hooks/useRecordings';
+import { useDeleteRecording, usePhotoIds, useRecording, useRenameRecording } from '@/hooks/useRecordings';
 import { formatDateTime } from '@/lib/format';
 import { goBack } from '@/lib/nav';
-import { fontSize, radius, spacing } from '@/theme';
+import { useImmersiveScreen } from '@/theme/ImmersiveContext';
+import { fontSize, radius, spacing, timing } from '@/theme';
 
 /** Экран всегда тёмный, независимо от темы приложения — это лайтбокс. */
 const C = {
@@ -31,7 +37,17 @@ export default function PhotoViewerScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => makeStyles(), []);
-  const { data: photo, isLoading } = useRecording(id ?? '');
+  useImmersiveScreen();
+
+  // Листаем без навигации: роут только догоняет параметром, иначе на каждом
+  // смахивании экран перемонтировался бы и анимация рвалась.
+  const [activeId, setActiveId] = useState(id ?? '');
+  useEffect(() => {
+    if (id) setActiveId(id);
+  }, [id]);
+
+  const { data: photo, isLoading } = useRecording(activeId);
+  const { data: photoIds } = usePhotoIds();
   const rename = useRenameRecording();
   const del = useDeleteRecording();
 
@@ -39,24 +55,71 @@ export default function PhotoViewerScreen() {
   const [renameOpen, setRenameOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
 
+  const index = photoIds ? photoIds.indexOf(activeId) : -1;
+  const prevId = index > 0 ? photoIds![index - 1] : null;
+  const nextId = photoIds && index >= 0 && index < photoIds.length - 1 ? photoIds[index + 1] : null;
+
+  const x = useRef(new Animated.Value(0)).current;
+  const [frameW, setFrameW] = useState(0);
+
+  // PanResponder создаётся один раз — свежие соседи и ширина живут в ref.
+  const navRef = useRef({ prevId, nextId, frameW });
+  useEffect(() => {
+    navRef.current = { prevId, nextId, frameW };
+  });
+
+  // Слайды двигаем timing, а не spring: длительность предсказуема, и кадр
+  // произвольной длины (фон вкладки, слабое устройство) не оставит фото
+  // застрявшим на полпути.
+  const slideTo = useRef((toValue: number, duration: number, after?: () => void) => {
+    Animated.timing(x, { toValue, duration, useNativeDriver: true }).start(({ finished }) => {
+      if (finished) after?.();
+      else x.setValue(toValue);
+    });
+  }).current;
+
+  const go = useRef((targetId: string, dir: -1 | 1) => {
+    const w = navRef.current.frameW || 320;
+    // Текущее фото уезжает, следующее заходит с противоположной стороны.
+    slideTo(dir * w, timing.fast, () => {
+      setActiveId(targetId);
+      router.setParams({ id: targetId });
+      x.setValue(-dir * w);
+      slideTo(0, timing.base);
+    });
+  }).current;
+
+  const pan = useMemo(
+    () =>
+      PanResponder.create({
+        onMoveShouldSetPanResponder: (_e, g) => Math.abs(g.dx) > 10 && Math.abs(g.dx) > Math.abs(g.dy) * 1.2,
+        onPanResponderMove: (_e, g) => {
+          const nav = navRef.current;
+          // На краю ленты фото пружинит, а не уезжает в пустоту.
+          const atEdge = (g.dx < 0 && !nav.nextId) || (g.dx > 0 && !nav.prevId);
+          x.setValue(atEdge ? g.dx / 4 : g.dx);
+        },
+        onPanResponderRelease: (_e, g) => {
+          const nav = navRef.current;
+          const threshold = Math.max(60, nav.frameW * 0.22);
+          if (g.dx < -threshold && nav.nextId) return go(nav.nextId, -1);
+          if (g.dx > threshold && nav.prevId) return go(nav.prevId, 1);
+          slideTo(0, timing.fast);
+        },
+        onPanResponderTerminate: () => slideTo(0, timing.fast),
+      }),
+    [x, go],
+  );
+
   return (
     <View style={[styles.root, { paddingTop: insets.top + spacing.sm, paddingBottom: insets.bottom + spacing.xl }]}>
       <View style={styles.topBar}>
-        <View style={{ width: 30 }} />
-        <View style={styles.topRight}>
-          <Pressable
-            onPress={() => setMenuOpen(true)}
-            style={styles.close}
-            hitSlop={10}
-            accessibilityRole="button"
-            accessibilityLabel="Ещё"
-          >
-            <Ionicons name="ellipsis-horizontal" size={18} color={C.ink} />
-          </Pressable>
-          <Pressable onPress={() => goBack(router)} style={styles.close} hitSlop={10} accessibilityRole="button" accessibilityLabel="Закрыть">
-            <Ionicons name="close" size={18} color={C.ink} />
-          </Pressable>
-        </View>
+        <Pressable onPress={() => goBack(router)} hitSlop={10} accessibilityRole="button" accessibilityLabel="Закрыть">
+          <Ionicons name="close" size={24} color={C.ink} />
+        </Pressable>
+        <Pressable onPress={() => setMenuOpen(true)} hitSlop={8} accessibilityRole="button" accessibilityLabel="Ещё">
+          <Ionicons name="ellipsis-horizontal" size={21} color={C.ink} />
+        </Pressable>
       </View>
 
       {isLoading || !photo ? (
@@ -65,8 +128,10 @@ export default function PhotoViewerScreen() {
         </View>
       ) : (
         <>
-          <View style={styles.photoWrap}>
-            <Image source={{ uri: photo.photoUrl }} style={styles.photo} resizeMode="contain" />
+          <View style={styles.photoWrap} onLayout={(e) => setFrameW(e.nativeEvent.layout.width)}>
+            <Animated.View style={[styles.photoSlide, { transform: [{ translateX: x }] }]} {...pan.panHandlers}>
+              <Image source={{ uri: photo.photoUrl }} style={styles.photo} resizeMode="contain" />
+            </Animated.View>
           </View>
 
           <View style={styles.meta}>
@@ -76,6 +141,8 @@ export default function PhotoViewerScreen() {
             <Txt size={fontSize.caption} color={C.muted} style={{ marginTop: spacing.sm }}>
               {formatDateTime(photo.createdAt)}
               {photo.sizeMb ? ` · ${String(photo.sizeMb).replace('.', ',')} МБ` : ''}
+              {/* Без счётчика неочевидно, что фото можно листать. */}
+              {photoIds && photoIds.length > 1 && index >= 0 ? ` · ${index + 1} из ${photoIds.length}` : ''}
             </Txt>
             {photo.sentToInbox ? (
               <View style={styles.statusChip}>
@@ -155,16 +222,6 @@ const makeStyles = () =>
   StyleSheet.create({
     root: { flex: 1, backgroundColor: C.bg, paddingHorizontal: spacing.xl },
     topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-    topRight: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-    close: {
-      width: 30,
-      height: 30,
-      borderRadius: 15,
-      borderWidth: 1,
-      borderColor: C.hairline,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
     center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
     photoWrap: {
       flex: 1,
@@ -173,6 +230,7 @@ const makeStyles = () =>
       overflow: 'hidden',
       backgroundColor: '#161616',
     },
+    photoSlide: { flex: 1 },
     photo: { flex: 1 },
     meta: { paddingTop: spacing.xl },
     statusChip: {

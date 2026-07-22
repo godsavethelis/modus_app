@@ -5,6 +5,10 @@
  * Жест на PanResponder + Animated: в проекте нет gesture-handler/reanimated,
  * и тащить их ради одного экрана дороже, чем посчитать драг на JS.
  *
+ * Сдвиг анимируется без нативного драйвера: то же значение интерполируется в
+ * ширину красного тайла, а width нативному драйверу недоступен. При смешении
+ * Animated.sequence обрывается посередине и строка застревает приоткрытой.
+ *
  * Механика:
  *   — перехватываем только горизонтальные движения, вертикаль уходит FlatList;
  *   — открытое состояние = два тайла по TILE (ink «Переименовать», accent «Удалить»);
@@ -68,6 +72,13 @@ export function SwipeableRow({
   const baseRef = useRef(0);
   const widthRef = useRef(0);
   const [isOpen, setIsOpen] = useState(staticOpen);
+  /**
+   * Тайлы смонтированы только пока строку трогают. В покое карточка накрывает
+   * их ровно, но веб-рамка телефона масштабируется (0.8125), и края карточки и
+   * тайлов округляются по-разному — из-под карточки лезет цветная кромка.
+   * Заодно из дерева доступности уходят по две кнопки на каждую строку списка.
+   */
+  const [revealed, setRevealed] = useState(staticOpen);
   const [rowW, setRowW] = useState(0);
   const [height, setHeight] = useState(0);
 
@@ -84,9 +95,27 @@ export function SwipeableRow({
   const settle = useRef((open: boolean, notify = true) => {
     openRef.current = open;
     setIsOpen(open);
-    Animated.spring(x, { toValue: open ? -OPEN : 0, friction: 9, tension: 90, useNativeDriver: true }).start();
+    Animated.spring(x, { toValue: open ? -OPEN : 0, friction: 9, tension: 90, useNativeDriver: false }).start();
     if (notify) onOpenChangeRef.current(open ? idRef.current : null);
   }).current;
+
+  /**
+   * Тайлы монтируются ровно тогда, когда строка сдвинута. Считать это по
+   * колбэкам анимаций ненадёжно — прерванная анимация возвращает finished:false
+   * и состояние застревает; значение сдвига — единственный честный источник.
+   * В покое слушатель молчит, событий нет.
+   */
+  const revealedRef = useRef(staticOpen);
+  useEffect(() => {
+    if (staticOpen) return;
+    const sub = x.addListener(({ value }) => {
+      const next = Math.abs(value) > 0.5;
+      if (revealedRef.current === next) return;
+      revealedRef.current = next;
+      setRevealed(next);
+    });
+    return () => x.removeListener(sub);
+  }, [x, staticOpen]);
 
   // Открылась другая строка — эта закрывается (без обратного уведомления,
   // иначе сбросили бы только что выставленный openId соседа).
@@ -96,17 +125,23 @@ export function SwipeableRow({
   }, [openId, id, staticOpen, settle]);
 
   // Свайп — скрытый жест, мышью в браузере его не угадать: один раз за
-  // сессию верхняя карточка приоткрывается и возвращается.
+  // сессию верхняя карточка приоткрывается и возвращается. Приоткрываем ровно
+  // на один тайл — на промежуточной ширине от «УДАЛИТЬ» видно огрызок слова.
   useEffect(() => {
     if (!hint || staticOpen) return;
     const anim = Animated.sequence([
       Animated.delay(700),
-      Animated.timing(x, { toValue: -44, duration: timing.fast, useNativeDriver: true }),
-      Animated.delay(300),
-      Animated.spring(x, { toValue: 0, friction: 7, tension: 70, useNativeDriver: true }),
+      Animated.timing(x, { toValue: -TILE, duration: timing.fast, useNativeDriver: false }),
+      Animated.delay(420),
+      Animated.spring(x, { toValue: 0, friction: 7, tension: 70, useNativeDriver: false }),
     ]);
     anim.start();
-    return () => anim.stop();
+    // Прерванная подсказка (ре-маунт, resize окна) не должна оставить
+    // карточку приоткрытой — возвращаем её на место руками.
+    return () => {
+      anim.stop();
+      x.setValue(0);
+    };
   }, [hint, staticOpen, x]);
 
   useEffect(() => {
@@ -176,36 +211,38 @@ export function SwipeableRow({
         }}
       >
         {/* Тайлы обрезаны силуэтом карточки — карточка едет поверх и кладёт тень. */}
-        <View style={styles.actions} pointerEvents={isOpen ? 'auto' : 'none'}>
-          <Animated.View style={{ opacity: renameOpacity }}>
-            <Pressable
-              onPress={onRename}
-              style={[styles.tile, { width: TILE, backgroundColor: colors.ink }]}
-              accessibilityRole="button"
-              accessibilityLabel="Переименовать"
-            >
-              <Ionicons name="pencil" size={18} color={colors.bg} />
-              {/* «ПЕРЕИМЕНОВАТЬ» в тайл не влезает: readable() не опускает кегль
-                  ниже 11px, тексту нужно 66px при доступных 50. Карандаш + «ИМЯ». */}
-              <Txt weight="semibold" size={9.5} numberOfLines={1} color={colors.bg} style={styles.tileLabel}>
-                ИМЯ
-              </Txt>
-            </Pressable>
-          </Animated.View>
-          <Animated.View style={{ width: deleteW }}>
-            <Pressable
-              onPress={onDelete}
-              style={[styles.tile, { backgroundColor: colors.accent }]}
-              accessibilityRole="button"
-              accessibilityLabel="Удалить"
-            >
-              <Ionicons name="trash-outline" size={18} color={colors.onAccent} />
-              <Txt weight="semibold" size={9.5} numberOfLines={1} color={colors.onAccent} style={styles.tileLabel}>
-                УДАЛИТЬ
-              </Txt>
-            </Pressable>
-          </Animated.View>
-        </View>
+        {revealed ? (
+          <View style={styles.actions} pointerEvents={isOpen ? 'auto' : 'none'}>
+            <Animated.View style={{ opacity: renameOpacity }}>
+              <Pressable
+                onPress={onRename}
+                style={[styles.tile, { width: TILE, backgroundColor: colors.ink }]}
+                accessibilityRole="button"
+                accessibilityLabel="Переименовать"
+              >
+                <Ionicons name="pencil" size={18} color={colors.bg} />
+                {/* «ПЕРЕИМЕНОВАТЬ» в тайл не влезает: readable() не опускает кегль
+                    ниже 11px, тексту нужно 66px при доступных 50. Карандаш + «ИМЯ». */}
+                <Txt weight="semibold" size={9.5} numberOfLines={1} color={colors.bg} style={styles.tileLabel}>
+                  ИМЯ
+                </Txt>
+              </Pressable>
+            </Animated.View>
+            <Animated.View style={{ width: deleteW }}>
+              <Pressable
+                onPress={onDelete}
+                style={[styles.tile, { backgroundColor: colors.accent }]}
+                accessibilityRole="button"
+                accessibilityLabel="Удалить"
+              >
+                <Ionicons name="trash-outline" size={18} color={colors.onAccent} />
+                <Txt weight="semibold" size={9.5} numberOfLines={1} color={colors.onAccent} style={styles.tileLabel}>
+                  УДАЛИТЬ
+                </Txt>
+              </Pressable>
+            </Animated.View>
+          </View>
+        ) : null}
 
         <Animated.View style={{ transform: [{ translateX: x }] }} {...(staticOpen ? {} : pan.panHandlers)}>
           {children}

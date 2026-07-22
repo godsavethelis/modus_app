@@ -374,26 +374,39 @@ export function makePhotoTitle(date: Date): string {
   return `Фото ${day}, ${time}`;
 }
 
-/** Готовое фото в ленте — чтобы карточка и просмотрщик были видны в демо сразу. */
-const demoPhoto: RecordingDetail = {
-  id: 'p_1',
-  title: 'Фото 3 октября, 12:40',
-  createdAt: '2025-10-03T12:40:00.000Z',
-  durationSec: 0,
-  status: 'ready',
-  sentToInbox: true,
-  kind: 'photo',
-  ...stock('modus-demo'),
-  sizeMb: 2.4,
-  audioUrl: '',
-  speakers: [],
-  segments: [],
-};
+function demoPhoto(id: string, iso: string, seed: string, sizeMb: number): RecordingDetail {
+  return {
+    id,
+    title: makePhotoTitle(new Date(iso)),
+    createdAt: iso,
+    durationSec: 0,
+    status: 'ready',
+    sentToInbox: true,
+    kind: 'photo',
+    ...stock(seed),
+    sizeMb,
+    audioUrl: '',
+    speakers: [],
+    segments: [],
+  };
+}
+
+/**
+ * Готовые фото в ленте — чтобы карточка и просмотрщик были видны в демо сразу.
+ * Их несколько и с разными датами: между ними в ленте лежат аудиозаписи, и на
+ * этом видно, что смахивание в просмотрщике перебирает только фото.
+ */
+const demoPhotos: RecordingDetail[] = [
+  demoPhoto('p_1', '2025-10-03T12:40:00.000Z', 'modus-demo', 2.4),
+  demoPhoto('p_2', '2025-09-22T09:15:00.000Z', 'modus-board', 3.1),
+  demoPhoto('p_3', '2025-06-24T18:05:00.000Z', 'modus-slide', 1.8),
+  demoPhoto('p_4', '2025-06-19T11:32:00.000Z', 'modus-sketch', 2.9),
+];
 
 /** In-memory «база» прототипа. Мутируется мок-API (rename/delete/send). ~30 записей. */
 export const mockRecordings: RecordingDetail[] = [
   lectureDetail,
-  demoPhoto,
+  ...demoPhotos,
   weeklyMeeting,
   presentation,
   wideShort,

@@ -35,6 +35,19 @@ export async function listRecordingsPage(
   return { items, nextPage };
 }
 
+/**
+ * id всех фото в порядке ленты — для листания свайпом в просмотрщике.
+ * Аудиозаписи пропускаются: смахивание внутри лайтбокса перебирает только фото.
+ * TODO(backend): GET /api/mobile/recording/list?kind=photo&fields=id
+ */
+export async function listPhotoIds(): Promise<string[]> {
+  await delay(200);
+  return mockRecordings
+    .filter((r) => r.kind === 'photo')
+    .sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt))
+    .map((r) => r.id);
+}
+
 export async function getRecording(id: string): Promise<RecordingDetail> {
   await delay();
   // TODO(backend): GET /api/mobile/recording/:id

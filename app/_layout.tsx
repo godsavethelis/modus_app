@@ -7,11 +7,15 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useFonts } from 'expo-font';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
 import { WebPhoneFrame } from '@/components/WebPhoneFrame';
+import { ImmersiveProvider, useImmersive } from '@/theme/ImmersiveContext';
 import { ThemeProvider, useTheme } from '@/theme/ThemeProvider';
 
 function ThemedStatusBar() {
   const { mode } = useTheme();
-  return <StatusBar style={mode === 'dark' ? 'light' : 'dark'} />;
+  const { immersive } = useImmersive();
+  // Лайтбокс фото всегда тёмный — на нём иконки статус-бара светлые
+  // независимо от темы приложения.
+  return <StatusBar style={immersive || mode === 'dark' ? 'light' : 'dark'} />;
 }
 
 SplashScreen.preventAutoHideAsync();
@@ -59,10 +63,12 @@ export default function RootLayout() {
       <ThemeProvider>
         <QueryClientProvider client={queryClient}>
           <AuthProvider>
-            <ThemedStatusBar />
-            <WebPhoneFrame>
-              <RootNavigator />
-            </WebPhoneFrame>
+            <ImmersiveProvider>
+              <ThemedStatusBar />
+              <WebPhoneFrame>
+                <RootNavigator />
+              </WebPhoneFrame>
+            </ImmersiveProvider>
           </AuthProvider>
         </QueryClientProvider>
       </ThemeProvider>

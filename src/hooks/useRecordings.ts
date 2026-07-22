@@ -28,6 +28,15 @@ export function useRecording(id: string) {
   });
 }
 
+/** Порядок фото в ленте — просмотрщик листает по нему свайпом. */
+export function usePhotoIds() {
+  return useQuery({
+    queryKey: ['photo-ids'],
+    queryFn: () => recordingsApi.listPhotoIds(),
+    staleTime: 60_000,
+  });
+}
+
 /**
  * Опрос статуса обработки записи (для карточки с полоской прогресса).
  * Крутится, пока запись не станет ready/failed, затем обновляет список.
