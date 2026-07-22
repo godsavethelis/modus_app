@@ -15,6 +15,7 @@ import { Screen } from '@/components/ui/Screen';
 import { Txt } from '@/components/ui/Txt';
 import { FilePickerSheet } from '@/components/FilePickerSheet';
 import { RecordingCard } from '@/components/RecordingCard';
+import { SwipeableRow } from '@/components/SwipeableRow';
 import { goBack } from '@/lib/nav';
 import { fontSize, radius, shadow, spacing, type Palette } from '@/theme';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -33,6 +34,16 @@ const CARDS: { label: string; rec: Recording }[] = [
   { label: 'Фото · сбой загрузки', rec: { id: 's_pf', title: 'Фото 18 июля, 14:40', createdAt: iso, durationSec: 0, status: 'failed', sentToInbox: false, kind: 'photo', thumbUrl: 'https://picsum.photos/seed/modus-slide/300/300' } },
   { label: 'Фото · в библиотеке', rec: { id: 's_pr', title: 'Фото 18 июля, 14:38', createdAt: iso, durationSec: 0, status: 'ready', sentToInbox: true, kind: 'photo', thumbUrl: 'https://picsum.photos/seed/modus-demo/300/300' } },
 ];
+
+/** Строка со свайпом: раскрыта статично, чтобы тайлы было видно без жеста. */
+const SWIPE_CARD: Recording = {
+  id: 's_sw',
+  title: 'Созвон с подрядчиком',
+  createdAt: iso,
+  durationSec: 1240,
+  status: 'ready',
+  sentToInbox: true,
+};
 
 /** Тосты из спеки и прототипа. */
 const TOASTS = [
@@ -85,6 +96,25 @@ export default function StatesScreen() {
               <RecordingCard recording={c.rec} preview onPress={() => {}} />
             </View>
           ))}
+
+          {/* Свайп жестом не покажешь на скриншоте — здесь строка раскрыта статично. */}
+          <View style={styles.cardItem}>
+            <Txt size={fontSize.micro} color={colors.textMuted} style={styles.cardLabel}>
+              СВАЙП ВЛЕВО — БЫСТРЫЕ КОМАНДЫ
+            </Txt>
+            <View style={styles.bleed}>
+              <SwipeableRow
+                id={SWIPE_CARD.id}
+                staticOpen
+                openId={null}
+                onOpenChange={() => {}}
+                onRename={() => {}}
+                onDelete={() => {}}
+              >
+                <RecordingCard recording={SWIPE_CARD} preview onPress={() => {}} />
+              </SwipeableRow>
+            </View>
+          </View>
         </Section>
 
         {/* Полноэкранные экраны */}
@@ -288,6 +318,8 @@ const makeStyles = (colors: Palette) =>
     section: { marginBottom: spacing.xl },
     sectionLabel: { letterSpacing: 1.5, marginBottom: spacing.md },
     cardItem: { marginBottom: spacing.md },
+    /** SwipeableRow сам держит отступы ленты — гасим паддинг витрины. */
+    bleed: { marginHorizontal: -spacing.lg },
     cardLabel: { letterSpacing: 1, marginBottom: 6 },
     rowBtn: {
       flexDirection: 'row',

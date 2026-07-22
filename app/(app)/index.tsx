@@ -5,16 +5,22 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import { Screen } from '@/components/ui/Screen';
 import { Txt } from '@/components/ui/Txt';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { FilePickerSheet } from '@/components/FilePickerSheet';
 import { PhotoSheet } from '@/components/PhotoSheet';
 import { RecordButton } from '@/components/RecordButton';
 import { RecordingCard } from '@/components/RecordingCard';
-import { useInfiniteRecordings } from '@/hooks/useRecordings';
+import { RenameDialog } from '@/components/RenameDialog';
+import { SwipeableRow } from '@/components/SwipeableRow';
+import { useDeleteRecording, useInfiniteRecordings, useRenameRecording } from '@/hooks/useRecordings';
 import { recordingsApi } from '@/services/api';
 import { fontSize, radius, spacing, type Palette } from '@/theme';
 import { useTheme } from '@/theme/ThemeProvider';
 import type { MockAudioFile } from '@/services/mocks/data';
 import type { Recording } from '@/types';
+
+/** Подсказку про свайп показываем один раз за запуск приложения. */
+let swipeHintShown = false;
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -24,7 +30,36 @@ export default function HomeScreen() {
 
   const { data, isLoading, isError, refetch, fetchNextPage, hasNextPage, isFetchingNextPage } =
     useInfiniteRecordings(15);
-  const items = useMemo(() => data?.pages.flatMap((p) => p.items) ?? [], [data]);
+  const rename = useRenameRecording();
+  const del = useDeleteRecording();
+
+  // Быстрые команды по свайпу влево: открыта всегда одна строка.
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [renameTarget, setRenameTarget] = useState<Recording | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Recording | null>(null);
+  /** Строка, которая сейчас схлопывается после подтверждённого удаления. */
+  const [removingId, setRemovingId] = useState<string | null>(null);
+  /** Уже удалённые: держим до конца перезапроса списка, иначе карточка мигнёт обратно. */
+  const [removedIds, setRemovedIds] = useState<string[]>([]);
+  const [showHint] = useState(() => {
+    if (swipeHintShown) return false;
+    swipeHintShown = true;
+    return true;
+  });
+
+  const items = useMemo(
+    () => (data?.pages.flatMap((p) => p.items) ?? []).filter((r) => !removedIds.includes(r.id)),
+    [data, removedIds],
+  );
+
+  function confirmDelete() {
+    if (!deleteTarget) return;
+    // Схлопывание идёт сразу, запрос — фоном: ждать мок-задержку незачем.
+    del.mutate(deleteTarget.id);
+    setRemovingId(deleteTarget.id);
+    setDeleteTarget(null);
+    setOpenId(null);
+  }
 
   // Чёрный «+» справа снизу раскрывает меню создания: «Фото» и «Файл».
   // Пока герой-REC на экране, пункта «Запись» в меню нет (он дублировал бы
@@ -151,10 +186,22 @@ export default function HomeScreen() {
         <FlatList
           data={items}
           keyExtractor={(r) => r.id}
-          renderItem={({ item }) => (
-            <View style={styles.cardWrap}>
+          renderItem={({ item, index }) => (
+            <SwipeableRow
+              id={item.id}
+              openId={openId}
+              onOpenChange={setOpenId}
+              onRename={() => setRenameTarget(item)}
+              onDelete={() => setDeleteTarget(item)}
+              hint={showHint && index === 0}
+              removing={removingId === item.id}
+              onRemoved={() => {
+                setRemovedIds((prev) => [...prev, item.id]);
+                setRemovingId(null);
+              }}
+            >
               <RecordingCard recording={item} onPress={() => openRecording(item)} />
-            </View>
+            </SwipeableRow>
           )}
           ListHeaderComponent={header}
           ListEmptyComponent={empty}
@@ -275,6 +322,28 @@ export default function HomeScreen() {
       {fileSheetOpen ? (
         <FilePickerSheet onClose={() => setFileSheetOpen(false)} onPick={sendFile} />
       ) : null}
+
+      {/* Быстрые команды свайпа. Оверлеи, а не RN Modal, — иначе на вебе вылезут из рамки. */}
+      {renameTarget ? (
+        <RenameDialog
+          value={renameTarget.title}
+          onSave={(title) => rename.mutate({ id: renameTarget.id, title })}
+          onClose={() => {
+            setRenameTarget(null);
+            setOpenId(null);
+          }}
+        />
+      ) : null}
+
+      {deleteTarget ? (
+        <ConfirmDialog
+          title={deleteTarget.kind === 'photo' ? 'Удалить фото?' : 'Удалить запись?'}
+          text="Действие необратимо. Восстановить не получится."
+          confirm="Удалить"
+          onConfirm={confirmDelete}
+          onClose={() => setDeleteTarget(null)}
+        />
+      ) : null}
     </Screen>
   );
 }
@@ -308,7 +377,6 @@ const makeStyles = (colors: Palette) =>
       marginBottom: spacing.sm,
     },
     sheetHeader: { paddingHorizontal: spacing.xl, paddingBottom: spacing.md },
-    cardWrap: { paddingHorizontal: spacing.lg, paddingBottom: 12 },
     empty: { alignItems: 'center', paddingHorizontal: spacing.xxl, paddingTop: spacing.lg, gap: spacing.sm },
     emptyHint: { lineHeight: 18, maxWidth: 260 },
     emptyBtn: {

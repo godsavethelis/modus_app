@@ -13,9 +13,11 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { AudioPlayer } from '@/components/AudioPlayer';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { DotCloud } from '@/components/DotCloud';
 import { OSShareSheet } from '@/components/OSShareSheet';
 import { ProgressBar } from '@/components/ProgressBar';
+import { RenameDialog } from '@/components/RenameDialog';
 import { Screen } from '@/components/ui/Screen';
 import { Txt } from '@/components/ui/Txt';
 import { Reveal } from '@/components/ui/Reveal';
@@ -84,7 +86,6 @@ export default function RecordingDetailScreen() {
   const [shareFile, setShareFile] = useState<ExportKind | null>(null);
   const [renameOpen, setRenameOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
-  const [draftTitle, setDraftTitle] = useState('');
   /** Текст тоста внизу экрана; null — тоста нет. */
   const [toast, setToast] = useState<string | null>(null);
 
@@ -558,7 +559,6 @@ export default function RecordingDetailScreen() {
               style={styles.sheetRow}
               onPress={() => {
                 setMenuOpen(false);
-                setDraftTitle(rec.title);
                 setRenameOpen(true);
               }}
             >
@@ -618,68 +618,25 @@ export default function RecordingDetailScreen() {
         </View>
       ) : null}
 
-      {/* Переименование */}
       {renameOpen ? (
-        <View style={[styles.overlay, styles.overlayCenter]}>
-          <Pressable style={styles.overlayFill} onPress={() => setRenameOpen(false)} />
-          <View style={styles.dialog}>
-            <Txt weight="bold" size={fontSize.lg}>
-              Переименовать
-            </Txt>
-            <TextInput value={draftTitle} onChangeText={setDraftTitle} autoFocus multiline style={styles.dialogInput} />
-            <View style={styles.dialogActions}>
-              <Pressable onPress={() => setRenameOpen(false)} style={styles.dialogBtn}>
-                <Txt size={fontSize.base} color={colors.textSecondary}>
-                  Отмена
-                </Txt>
-              </Pressable>
-              <Pressable
-                onPress={() => {
-                  if (draftTitle.trim()) patch.mutate({ title: draftTitle.trim() });
-                  setRenameOpen(false);
-                }}
-                style={styles.dialogBtn}
-              >
-                <Txt weight="semibold" size={fontSize.base} color={colors.accent}>
-                  Сохранить
-                </Txt>
-              </Pressable>
-            </View>
-          </View>
-        </View>
+        <RenameDialog
+          value={rec.title}
+          onSave={(title) => patch.mutate({ title })}
+          onClose={() => setRenameOpen(false)}
+        />
       ) : null}
 
-      {/* Удаление */}
       {deleteOpen ? (
-        <View style={[styles.overlay, styles.overlayCenter]}>
-          <Pressable style={styles.overlayFill} onPress={() => setDeleteOpen(false)} />
-          <View style={styles.dialog}>
-            <Txt weight="bold" size={fontSize.lg}>
-              Удалить запись?
-            </Txt>
-            <Txt size={fontSize.small} color={colors.textSecondary} style={{ marginTop: 6, lineHeight: 18 }}>
-              Действие необратимо. Запись будет удалена без возможности восстановления.
-            </Txt>
-            <View style={styles.dialogActions}>
-              <Pressable onPress={() => setDeleteOpen(false)} style={styles.dialogBtn}>
-                <Txt size={fontSize.base} color={colors.textSecondary}>
-                  Отмена
-                </Txt>
-              </Pressable>
-              <Pressable
-                onPress={() => {
-                  setDeleteOpen(false);
-                  onDelete();
-                }}
-                style={styles.dialogBtn}
-              >
-                <Txt weight="semibold" size={fontSize.base} color={colors.dangerText}>
-                  Удалить
-                </Txt>
-              </Pressable>
-            </View>
-          </View>
-        </View>
+        <ConfirmDialog
+          title="Удалить запись?"
+          text="Действие необратимо. Восстановить не получится."
+          confirm="Удалить"
+          onConfirm={() => {
+            setDeleteOpen(false);
+            onDelete();
+          }}
+          onClose={() => setDeleteOpen(false)}
+        />
       ) : null}
     </Screen>
   );

@@ -43,6 +43,13 @@ export const paletteDark = {
 
 export type Palette = typeof palette;
 
+/**
+ * Тёмная палитра, приведённая к Palette. Нужна экранам и диалогам, которые
+ * всегда тёмные независимо от темы приложения (лайтбокс фото). Литеральные
+ * типы `as const` не пересекаются между палитрами — отсюда двойное приведение.
+ */
+export const alwaysDark = paletteDark as unknown as Palette;
+
 export const spacing = {
   xs: 4,
   sm: 8,

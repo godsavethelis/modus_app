@@ -1,7 +1,9 @@
 /** React Query хуки над мок-API записей. */
-import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { ExportKind, RecordingPatch } from '@/types';
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient, type InfiniteData } from '@tanstack/react-query';
+import type { ExportKind, Recording, RecordingPatch } from '@/types';
 import { recordingsApi, transcribeApi } from '@/services/api';
+
+type RecordingsPage = { items: Recording[]; nextPage: number | null };
 
 const keys = {
   list: ['recordings'] as const,
@@ -66,6 +68,32 @@ export function usePatchRecording(id: string) {
       qc.invalidateQueries({ queryKey: keys.detail(id) });
       qc.invalidateQueries({ queryKey: keys.list });
     },
+  });
+}
+
+/**
+ * Переименование из списка: id приходит в mutate, а не в хук, — на главной
+ * переименовать можно любую карточку, не открывая её.
+ *
+ * Заголовок подменяется оптимистично: иначе на моке карточка обновилась бы
+ * только после перезапроса всех загруженных страниц.
+ */
+export function useRenameRecording() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, title }: { id: string; title: string }) => recordingsApi.patchRecording(id, { title }),
+    onMutate: async ({ id, title }) => {
+      await qc.cancelQueries({ queryKey: keys.list });
+      qc.setQueriesData<InfiniteData<RecordingsPage>>({ queryKey: ['recordings', 'infinite'] }, (old) =>
+        old
+          ? {
+              ...old,
+              pages: old.pages.map((p) => ({ ...p, items: p.items.map((r) => (r.id === id ? { ...r, title } : r)) })),
+            }
+          : old,
+      );
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: keys.list }),
   });
 }
 
